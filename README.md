@@ -37,6 +37,10 @@ Si quieres ayudar a otro taller a montarla **sin cobrar**, adelante.
 - Un sitio donde publicar un archivo HTML: tu web de WordPress, Netlify, GitHub Pages, etc.
 - [Node.js](https://nodejs.org) para instalar la herramienta de Supabase (`npm install -g supabase`).
 
+## ¿Te ayuda una IA?
+
+Si usas una IA para instalar o adaptar la app (Claude, ChatGPT, Cursor, Copilot, Gemini…), pídele primero que lea [AGENTS.md](AGENTS.md). Ahí se explica cómo está hecha la app y qué no se debe romper. Muchas de estas herramientas lo leen solas al abrir la carpeta. Si tu IA es un chat, adjúntale ese archivo junto con el que quieras cambiar.
+
 ## Instalación
 
 ### 1. Base de datos
