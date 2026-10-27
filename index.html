@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Área de Alumnos</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=DM+Serif+Text:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    /* ── COLORES DEL TALLER: cambia estos valores por los tuyos y toda la app
+       (botones, calendario, arcos de la pantalla de entrada…) los usará ── */
+    --orange:    #EE7D2D;
+    --orange-lt: #F8BC90;
+    --orange-bg: #FEF3EA;
+    --green:     #376953;
+    --green-lt:  #14A781;
+    --green-bg:  #EAF4F0;
+    --purple:    #B5AAD2;
+    --purple-lt: #E0D0E7;
+    --purple-bg: #F4F0F8;
+    --black:     #1A1B20;
+    --gray:      #6B6B6B;
+    --gray-lt:   #D8D8D8;
+    --bg:        #FFF8F2;
+    --white:     #FFFFFF;
+    --border:    rgba(0,0,0,0.08);
+    --torno-c:   var(--orange);
+    --modelado-c:var(--green);
+    --font-serif: 'DM Serif Text', 'Cormorant Garamond', serif;
+    --font-sans:  'Montserrat', sans-serif;
+    --radius-card: 12px;
+    --radius-pill: 20px;
+  
+    /* tonos derivados (hover, textos sobre fondo claro) */
+    --orange-hover: #D4691A;
+    --orange-texto: #B05A18;
+    --orange-texto-lt: #C07030;
+    --orange-bg-hover: #FDE8D4;
+    --hoy-bg: #FFF8F4;
+    --green-hover: #2A5240;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { font-family:var(--font-sans); background:var(--bg) !important; color:var(--black); min-height:100vh; font-size:14px; margin:0; padding:0; }
+  /* Hide WordPress title */
+  .entry-title, .page-title, h1.entry-title { display:none !important; }
+
+  /* ── AUTH ─────────────────────────────────────────────── */
+  #auth-screen {
+    min-height:100vh; display:flex; background:#FFFFFF; width:100%;
+  }
+  .auth-left {
+    flex:1; background:var(--orange-lt); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding:3rem;
+    position:relative; overflow:hidden;
+  }
+  .auth-left::before { display:none; }
+  .auth-left::after { display:none; }
+  .auth-brand { text-align:center; position:relative; z-index:1; }
+  .auth-brand-name {
+    font-family:var(--font-serif); font-size:3.2rem; font-weight:400; letter-spacing:-0.02em;
+    color:var(--white); line-height:1; margin-bottom:0.5rem;
+  }
+  .auth-brand-sub {
+    font-size:0.7rem; letter-spacing:0.25em; text-transform:uppercase;
+    color:rgba(255,255,255,0.75); font-weight:400;
+  }
+  .auth-right {
+    flex:1; display:flex; align-items:center; justify-content:center; padding:3rem;
+  }
+  .auth-form-wrap { width:100%; max-width:380px; }
+  .auth-title { font-family:var(--font-serif); font-size:1.9rem; font-weight:400; color:var(--green); margin-bottom:0.25rem; }
+  .auth-subtitle { font-size:0.8rem; color:var(--gray); margin-bottom:2rem; }
+
+  /* ── FORM ELEMENTS ───────────────────────────────────── */
+  .field { margin-bottom:1rem; }
+  .field label { display:block; font-size:0.7rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--gray); margin-bottom:0.4rem; }
+  .field input, .field select {
+    width:100%; padding:0.7rem 0.9rem; border:1px solid var(--gray-lt); border-radius:6px;
+    font-family:'Montserrat',sans-serif; font-size:0.88rem; background:var(--white);
+    color:var(--black); outline:none; transition:border-color 0.2s;
+  }
+  .field input:focus, .field select:focus { border-color:var(--orange); }
+
+  .btn {
+    display:inline-flex; align-items:center; justify-content:center; gap:0.4rem;
+    padding:0.8rem 1.4rem; border:none; border-radius:var(--radius-pill);
+    font-family:var(--font-sans); font-size:0.75rem; font-weight:600;
+    letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; transition:all 0.2s;
+    text-decoration:none;
+  }
+  .btn-primary { background:var(--orange); color:var(--white); width:100%; }
+  .btn-primary:hover { background:var(--orange-hover); }
+  .btn-outline { background:transparent; color:var(--orange); border:1.5px solid var(--orange); }
+  .btn-outline:hover { background:var(--orange-bg); }
+  .btn-green { background:var(--green); color:var(--white); }
+  .btn-green:hover { background:var(--green-hover); }
+  .btn-ghost { background:transparent; color:var(--gray); border:1px solid var(--border); }
+  .btn-ghost:hover { border-color:var(--gray-lt); background:var(--bg); }
+  .btn-danger { background:transparent; color:#C0392B; border:1px solid #C0392B; }
+  .btn-danger:hover { background:#FFF5F5; }
+  .btn-sm { padding:0.5rem 0.95rem; font-size:0.7rem; }
+  .btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .btn:disabled:hover { background:transparent; border-color:var(--border); color:var(--gray); }
+
+  /* ── CHIPS (class type filter) ──────────────────────── */
+  .chip-filter-row { display:flex; gap:0.6rem; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .chip {
+    display:inline-flex; align-items:center; padding:0.5rem 1.1rem; border-radius:var(--radius-pill);
+    border:1.5px solid var(--border); background:var(--white); color:var(--gray);
+    font-family:var(--font-sans); font-size:0.7rem; font-weight:700; letter-spacing:0.08em;
+    text-transform:uppercase; cursor:pointer; transition:all 0.15s;
+  }
+  .chip:hover { border-color:var(--orange-lt); }
+  .chip.active { background:var(--orange); border-color:var(--orange); color:var(--white); }
+
+  /* ── CALENDAR LEGEND ─────────────────────────────────── */
+  .cal-legend { display:flex; gap:1.5rem; flex-wrap:wrap; justify-content:center; margin-top:1.25rem; font-size:0.72rem; color:var(--gray); }
+  .cal-legend span { display:inline-flex; align-items:center; gap:0.4rem; }
+  .legend-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .legend-dot-green { background:var(--green-lt); }
+  .legend-dot-orange { background:var(--orange); }
+
+  .msg { padding:0.7rem 1rem; border-radius:6px; font-size:0.82rem; margin-bottom:1rem; font-weight:500; }
+  .msg-error { background:#FFF0EE; color:#C0392B; border-left:3px solid #C0392B; }
+  .msg-success { background:var(--green-bg); color:var(--green); border-left:3px solid var(--green); }
+  .msg-warning { background:var(--orange-bg); color:var(--orange-texto); border-left:3px solid var(--orange); }
+
+  /* ── APP ─────────────────────────────────────────────── */
+  #app { display:none; }
+  .topbar {
+    background:var(--white); border-bottom:1px solid var(--border);
+    padding:0 2rem; display:flex; align-items:center; justify-content:space-between;
+    height:60px; position:sticky; top:0; z-index:100;
+  }
+  .topbar-logo { font-size:1.1rem; font-weight:700; letter-spacing:-0.01em; color:var(--black); }
+  .topbar-logo span { color:var(--orange); }
+  .topbar-right { display:flex; align-items:center; gap:1rem; }
+  .user-chip {
+    display:flex; align-items:center; gap:0.5rem; background:var(--bg);
+    border:1px solid var(--border); border-radius:20px; padding:0.3rem 0.8rem;
+  }
+  .user-avatar {
+    width:24px; height:24px; border-radius:50%; background:var(--orange);
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.65rem; font-weight:700; color:var(--white);
+  }
+  .user-name-text { font-size:0.78rem; font-weight:500; color:var(--black); }
+  .logout-btn { background:none; border:none; font-size:0.72rem; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; color:var(--gray); cursor:pointer; padding:0.4rem 0.7rem; border:1px solid var(--border); border-radius:4px; font-family:'Montserrat',sans-serif; transition:all 0.2s; }
+  .logout-btn:hover { color:#C0392B; border-color:#C0392B; }
+
+  .nav-tabs { display:flex; background:var(--white); border-bottom:1px solid var(--border); padding:0 2rem; overflow-x:auto; gap:0; }
+  .nav-tab { padding:0 1.25rem; height:48px; background:none; border:none; border-bottom:2px solid transparent; font-family:var(--font-sans); font-size:0.72rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--gray); cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+  .nav-tab.active { color:var(--orange); border-bottom-color:var(--orange); }
+  .main-content { padding:2rem 2rem 5rem; max-width:1100px; margin:0 auto; }
+  .cal-title, .section-title, .day-detail-title, .confirm-title, .modal-hdr-title { font-family:var(--font-serif); font-weight:400; }
+
+  /* ── CAL CONTROLS ─────────────────────────────────────── */
+  .cal-header { display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+  .cal-title { font-size:1.3rem; font-weight:600; color:var(--black); flex:1; min-width:160px; }
+  .cal-view-toggle { display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+  .cal-view-btn { padding:0.5rem 1rem; background:none; border:none; font-size:0.7rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--gray); cursor:pointer; transition:all 0.2s; font-family:'Montserrat',sans-serif; }
+  .cal-view-btn.active { background:var(--orange); color:var(--white); }
+  .nav-btn { background:none; border:1px solid var(--border); border-radius:6px; width:34px; height:34px; font-size:0.9rem; cursor:pointer; color:var(--gray); transition:all 0.2s; }
+  .nav-btn:hover { border-color:var(--orange); color:var(--orange); }
+  .nav-btn:disabled { opacity:0.35; cursor:not-allowed; }
+  .nav-btn:disabled:hover { border-color:var(--border); color:var(--gray); }
+
+  /* ── CLASS CARDS (week) ─────────────────────────────── */
+  .classes-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:1rem; }
+  .week-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:0.75rem; }
+  .week-col { background:var(--white); border:1px solid var(--border); border-radius:var(--radius-card); overflow:hidden; }
+  .week-col-header { padding:0.75rem 1rem; border-bottom:1px solid var(--border); background:var(--bg); }
+  .week-col-header.today { background:var(--orange-bg); }
+  .week-col-dia { font-size:0.65rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gray); }
+  .week-col-fecha { font-size:1rem; font-weight:600; color:var(--black); }
+  .week-col-header.today .week-col-fecha { color:var(--orange); }
+  .week-slot { padding:0.75rem 1rem; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.15s; }
+  .week-slot:last-child { border-bottom:none; }
+  .week-slot:hover { background:var(--bg); }
+  .week-slot.mi-clase { background:var(--orange-bg); border-left:3px solid var(--orange); }
+  .week-slot.mi-clase:hover { background:var(--orange-bg-hover); }
+  .week-slot-hora { font-size:0.95rem; font-weight:600; color:var(--black); }
+  .week-slot-tipo { font-size:0.65rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin:0.2rem 0; }
+  .week-slot-tipo.torno { color:var(--orange); }
+  .week-slot-tipo.modelado { color:var(--green); }
+  .week-slot-plazas { font-size:0.7rem; color:var(--gray); }
+  .week-slot-badge { font-size:0.65rem; font-weight:700; color:var(--green); }
+  .week-col-empty { padding:1rem; font-size:0.78rem; color:var(--gray-lt); text-align:center; }
+  @media(max-width:700px){ .week-grid { grid-template-columns:1fr; } }
+  .class-card {
+    background:var(--white); border:1px solid var(--border); border-radius:var(--radius-card);
+    padding:1.25rem; transition:all 0.2s; position:relative; overflow:hidden;
+  }
+  .class-card:hover { box-shadow:0 4px 20px rgba(0,0,0,0.06); transform:translateY(-1px); }
+  .class-card-accent { position:absolute; top:0; left:0; right:0; height:3px; }
+  .class-card.torno .class-card-accent { background:var(--orange); }
+  .class-card.modelado .class-card-accent { background:var(--green); }
+  .class-card.festivo { background:var(--bg); opacity:0.6; }
+
+  .class-dia { font-size:0.68rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--gray); margin-bottom:0.3rem; }
+  .class-hora { font-size:1.4rem; font-weight:300; color:var(--black); letter-spacing:-0.02em; margin-bottom:0.3rem; }
+  .tag { display:inline-flex; align-items:center; font-size:0.65rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; padding:0.2rem 0.6rem; border-radius:20px; margin-bottom:0.9rem; }
+  .tag-torno { background:var(--orange-bg); color:var(--orange); }
+  .tag-modelado { background:var(--green-bg); color:var(--green); }
+  .tag-festivo { background:var(--purple-bg); color:var(--purple); }
+  .spots-text { font-size:0.75rem; color:var(--gray); margin-bottom:0.4rem; }
+  .spots-bar { height:3px; background:var(--bg); border-radius:2px; margin-bottom:1rem; overflow:hidden; }
+  .spots-fill { height:100%; border-radius:2px; }
+  .torno .spots-fill { background:var(--orange); }
+  .modelado .spots-fill { background:var(--green-lt); }
+  .badge-ok { display:inline-flex; align-items:center; gap:0.3rem; font-size:0.72rem; font-weight:600; color:var(--green); background:var(--green-bg); padding:0.25rem 0.6rem; border-radius:20px; margin-bottom:0.6rem; }
+  .badge-lleno { font-size:0.72rem; font-weight:500; color:var(--gray); }
+  .time-note { font-size:0.7rem; color:var(--orange-texto); margin-top:0.4rem; font-weight:500; }
+
+  /* ── MONTHLY CALENDAR ─────────────────────────────────── */
+  .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:var(--radius-card); overflow:hidden; }
+  .month-day-hdr { background:var(--bg); padding:0.6rem 0.5rem; text-align:center; font-size:0.65rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gray); }
+  .month-day { background:#FFFFFF; min-height:90px; padding:0.5rem; cursor:pointer; transition:background 0.12s; font-size:12px; }
+  @media(max-width:600px){
+    .month-day-hdr { font-size:0.5rem; padding:0.4rem 0.1rem; }
+    .month-day { min-height:70px; padding:0.3rem 0.2rem; font-size:10px; }
+    .day-slot { font-size:0.55rem; padding:1px 2px; }
+  }
+  .day-slots { display:flex; flex-direction:column; gap:2px; margin-top:3px; }
+  .day-slot { display:flex; justify-content:space-between; font-size:0.62rem; font-weight:600; padding:1px 3px; border-radius:3px; background:var(--bg); }
+  .day-slot-res { background:var(--green-bg) !important; color:var(--green); }
+  .day-slot-full { opacity:0.4; }
+  .month-day:hover { background:var(--orange-bg); }
+  .month-day.other-month { background:var(--bg); opacity:0.4; }
+  .month-day.today { background:var(--hoy-bg); }
+  .month-day.selected { background:var(--orange-bg); }
+  .month-day.festivo-day { background:#FFF5F5; }
+  .day-num { font-size:0.78rem; font-weight:600; color:var(--gray); margin-bottom:0.3rem; }
+  .month-day.today .day-num { color:var(--orange); }
+  .festivo-lbl { font-size:0.6rem; font-weight:600; color:#C0392B; text-transform:uppercase; letter-spacing:0.06em; }
+  .day-dots { display:flex; flex-wrap:wrap; gap:3px; margin-top:2px; justify-content:center; }
+  .dot { width:6px; height:6px; border-radius:50%; }
+  .dot.torno { background:var(--orange); }
+  .dot.modelado { background:var(--green-lt); }
+  .dot.reservado { outline:1.5px solid var(--green); }
+  .dot-available { background:var(--green-lt); }
+  .dot-mine { background:var(--orange); }
+  .day-pill { font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:var(--radius-card); white-space:nowrap; }
+  .month-day.tiene-reserva { background:var(--orange-bg); }
+  .month-day.tiene-reserva .day-num { color:var(--orange); font-weight:700; }
+  .day-libres { font-size:0.58rem; color:#6B6B6B; margin-top:2px; }
+  .day-pill.reservado { outline:1.5px solid var(--green-lt); background:var(--green-bg) !important; color:var(--green) !important; }
+  .day-pill.torno { background:var(--orange-bg); color:var(--orange); }
+  .day-pill.modelado { background:var(--green-bg); color:var(--green); }
+  .day-pill.reservado { outline:1px solid var(--green-lt); }
+
+  .day-detail-panel { background:var(--white); border:1px solid var(--border); border-radius:var(--radius-card); padding:1.5rem; margin-top:1.25rem; }
+  .day-detail-title { font-size:1rem; font-weight:600; color:var(--black); margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--border); }
+
+  /* ── RECOVERY BANNER ─────────────────────────────────── */
+  .recovery-banner {
+    display:flex; align-items:center; gap:1rem; background:var(--orange-bg);
+    border:1px solid var(--orange-lt); border-radius:var(--radius-card); padding:1rem 1.25rem;
+    margin-bottom:1.5rem;
+  }
+  .recovery-num { font-size:2rem; font-weight:700; color:var(--orange); line-height:1; }
+  .recovery-info strong { display:block; font-size:0.88rem; font-weight:600; color:var(--orange-texto); }
+  .recovery-info span { font-size:0.78rem; color:var(--orange-texto-lt); }
+
+  /* ── SECTION ─────────────────────────────────────────── */
+  .section-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:1px solid var(--border); }
+  .section-title { font-size:1.2rem; font-weight:700; color:var(--black); }
+
+  /* ── ADMIN FORM ──────────────────────────────────────── */
+  .form-panel { background:var(--white); border:1px solid var(--border); border-radius:var(--radius-card); padding:1.5rem; margin-bottom:1.5rem; }
+  .form-panel-title { font-size:0.75rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gray); margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--border); }
+  .fg { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.75rem; align-items:end; }
+  .fg .field { margin-bottom:0; }
+
+  /* ── TABLE ─────────────────────────────────────────────  */
+  .tbl-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-card); }
+  table.tbl { width:100%; border-collapse:collapse; background:var(--white); }
+  table.tbl th { padding:0.65rem 1rem; font-size:0.65rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gray); background:var(--bg); border-bottom:1px solid var(--border); text-align:left; }
+  table.tbl td { padding:0.8rem 1rem; border-bottom:1px solid var(--border); font-size:0.83rem; color:var(--black); }
+  table.tbl tr:last-child td { border-bottom:none; }
+  table.tbl tr:hover td { background:var(--bg); }
+
+  /* ── CARDS (misc) ─────────────────────────────────────── */
+  .info-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius-card); padding:1.5rem; margin-bottom:1rem; }
+  .info-card-title { font-size:0.65rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gray); margin-bottom:0.35rem; }
+  .info-card-value { font-size:1rem; font-weight:600; color:var(--black); }
+
+  .mis-item { background:var(--white); border:1px solid var(--border); border-radius:var(--radius-card); padding:1rem 1.25rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:0.75rem; }
+  .mis-item-left .item-dia { font-size:0.68rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--gray); }
+  .mis-item-left .item-hora { font-size:1rem; font-weight:600; color:var(--black); }
+
+  /* ── PAYMENT ─────────────────────────────────────────── */
+  .pay-option { border:1.5px solid var(--border); border-radius:var(--radius-card); padding:1.25rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:0.75rem; transition:all 0.2s; }
+  .pay-option:hover { border-color:var(--orange-lt); background:var(--orange-bg); }
+  .pay-price { font-size:1.6rem; font-weight:700; color:var(--black); }
+  .pay-price span { font-size:0.85rem; font-weight:400; color:var(--gray); }
+  .pay-desc { font-size:0.78rem; color:var(--gray); margin-top:0.1rem; }
+
+  /* ── MODAL ─────────────────────────────────────────────  */
+  .app-overlay { display:none; position:fixed; inset:0; background:rgba(26,27,32,0.45); z-index:10000; align-items:center; justify-content:center; padding:1rem; }
+  .overlay.open { display:flex !important; }
+  .modal { background:var(--white); border-radius:var(--radius-card); padding:1.75rem; width:100%; max-width:580px; max-height:85vh; overflow-y:auto; }
+  .modal-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; padding-bottom:1rem; border-bottom:1px solid var(--border); }
+  .modal-hdr-title { font-size:1.15rem; color:var(--black); }
+  .modal-close { background:none; border:none; font-size:1.4rem; cursor:pointer; color:var(--gray); line-height:1; padding:0.2rem; }
+
+  /* ── CONFIRM RESERVA MODAL ───────────────────────────── */
+  .confirm-modal { max-width:380px; text-align:center; }
+  .confirm-title { font-size:1.4rem; color:var(--black); margin-bottom:0.4rem; }
+  .confirm-subtitle { font-size:0.82rem; color:var(--gray); margin-bottom:1.5rem; }
+  .confirm-rows { text-align:left; background:var(--bg); border-radius:var(--radius-card); padding:1rem 1.1rem; margin-bottom:1.5rem; }
+  .confirm-row { display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid var(--border); }
+  .confirm-row:last-child { border-bottom:none; }
+  .confirm-row-label { font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--gray); }
+  .confirm-row-value { font-size:0.85rem; font-weight:600; color:var(--black); }
+
+  /* ── DAY LIST (student view) ─────────────────────────── */
+  .day-subtitle { font-size:0.8rem; color:var(--gray); margin-top:-0.5rem; margin-bottom:1rem; }
+  .slot-card { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; background:var(--white); border:1.5px solid var(--border); border-radius:var(--radius-card); padding:0.9rem 1.1rem; margin-bottom:0.75rem; flex-wrap:wrap; }
+  .slot-card.reservado { background:var(--orange-bg); border-color:var(--orange-lt); }
+  .slot-card-info { display:flex; align-items:center; gap:0.6rem; flex:1; flex-wrap:wrap; }
+  .slot-card-hora { font-size:1rem; font-weight:600; color:var(--black); white-space:nowrap; }
+  .tag-reserva { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.62rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--orange); background:var(--white); border:1px solid var(--orange-lt); padding:0.2rem 0.5rem; border-radius:20px; }
+
+  /* ── PERFIL ALUMNO ────────────────────────────────────── */
+  .profile-header { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; }
+  .profile-avatar { width:56px; height:56px; border-radius:50%; background:var(--orange); color:var(--white); display:flex; align-items:center; justify-content:center; font-size:1.3rem; font-weight:700; flex-shrink:0; }
+  .profile-name { font-size:1.1rem; font-weight:700; color:var(--black); }
+  .profile-email { font-size:0.78rem; color:var(--gray); }
+  .profile-section-label { font-size:0.68rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gray); margin-bottom:0.6rem; }
+  .practica-tags { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+  .historial-card { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; background:var(--white); border:1px solid var(--border); border-radius:var(--radius-card); padding:1.5rem 1.25rem; }
+  .historial-label { font-size:0.78rem; color:var(--gray); order:2; margin-top:0.3rem; }
+  .historial-num { font-family:var(--font-serif); font-size:2.4rem; font-weight:400; color:var(--orange); order:1; line-height:1; }
+
+  .loading { text-align:center; padding:3rem; color:var(--gray); font-size:0.85rem; }
+  .empty { text-align:center; padding:3rem 2rem; color:var(--gray); }
+  .empty strong { display:block; font-size:1.1rem; font-weight:600; color:var(--gray-lt); margin-bottom:0.5rem; }
+
+  @media(max-width:600px){
+    .auth-left { display:none; }
+    .topbar { padding:0 1rem; }
+    .main-content { padding:1rem 1rem 5.5rem; }
+    .nav-tabs {
+      position:fixed; left:0; right:0; bottom:0; z-index:200;
+      padding:0; border-bottom:none; border-top:1px solid var(--border);
+      box-shadow:0 -2px 12px rgba(0,0,0,0.06); overflow-x:auto;
+    }
+    .nav-tab {
+      flex:1 0 auto; min-width:90px; height:60px; border-bottom:none;
+      font-size:0.68rem; letter-spacing:0.1em;
+    }
+    .nav-tab.active { color:var(--orange); }
+    .month-day { min-height:55px; padding:0.3rem; }
+    .day-pill { display:none; }
+    .app-overlay { align-items:flex-end; padding:0; }
+    .app-overlay .modal { max-width:100%; width:100%; border-radius:20px 20px 0 0; max-height:90vh; padding:1.5rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom)); }
+  }
+
+  /* WordPress title override */
+  .page-id-1615 h1.entry-title,
+  .page-id-1615 .page-title,
+  .et_pb_post_title { display:none !important; }
+  .page-id-1615 .entry-content { padding:0 !important; margin:0 !important; }
+  #auth-screen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    margin: 0 !important;
+  }
+  #app {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 9999 !important;
+    overflow-y: auto !important;
+    background: var(--bg) !important;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ──────── AUTH ──────── -->
+<div id="auth-screen" style="display:flex">
+  <div class="auth-left">
+  <svg style="position:absolute;inset:0;width:100%;height:100%;z-index:1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 700" preserveAspectRatio="xMidYMid slice">
+  <path d="M 30,80 A 55,55 0 0,1 140,80" fill="none" style="stroke:var(--purple)" stroke-width="28"/>
+  <path d="M 180,30 A 45,45 0 0,0 270,30" fill="none" style="stroke:var(--green-lt)" stroke-width="24"/>
+  <path d="M 370,50 A 50,50 0 0,0 470,50" fill="none" style="stroke:var(--orange)" stroke-width="26"/>
+  <path d="M 230,100 A 48,48 0 0,1 326,100" fill="none" style="stroke:var(--purple)" stroke-width="26"/>
+  <path d="M -10,230 A 70,70 0 0,1 120,230" fill="none" style="stroke:var(--orange)" stroke-width="32"/>
+  <path d="M 255,200 A 42,42 0 0,0 340,200" fill="none" style="stroke:var(--green)" stroke-width="24"/>
+  <path d="M 370,220 A 40,40 0 0,1 450,220" fill="none" style="stroke:var(--orange-lt)" stroke-width="22"/>
+  <path d="M -20,340 A 65,65 0 0,1 100,340" fill="none" style="stroke:var(--orange-lt)" stroke-width="30"/>
+  <path d="M 170,390 A 52,52 0 0,1 274,390" fill="none" style="stroke:var(--purple)" stroke-width="28"/>
+  <path d="M 320,360 A 48,48 0 0,0 416,360" fill="none" style="stroke:var(--orange)" stroke-width="26"/>
+  <path d="M 50,490 A 55,55 0 0,0 160,490" fill="none" style="stroke:var(--orange-lt)" stroke-width="28"/>
+  <path d="M 390,510 A 45,45 0 0,1 480,510" fill="none" style="stroke:var(--green-lt)" stroke-width="24"/>
+  <circle cx="255" cy="590" r="32" fill="none" style="stroke:var(--orange-lt)" stroke-width="18"/>
+  <line x1="255" y1="622" x2="255" y2="648" style="stroke:var(--orange-lt)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 60,640 A 35,35 0 0,1 130,640" fill="none" style="stroke:var(--purple)" stroke-width="20"/>
+  <path d="M 440,130 A 38,38 0 0,0 440,205" fill="none" style="stroke:var(--purple)" stroke-width="20"/>
+  <path d="M 130,290 A 32,32 0 0,0 130,354" fill="none" style="stroke:var(--green)" stroke-width="18"/>
+</svg>
+    <div class="logo-texto" style="position:relative;z-index:2;font-family:var(--font-serif);font-size:2.6rem;color:var(--black)">Tu Taller</div>
+  </div>
+  <div class="auth-right">
+    <div class="auth-form-wrap">
+      <div class="auth-title">Área de alumnos</div>
+      <div class="auth-subtitle">Gestiona tus clases de cerámica</div>
+      <div id="auth-msg"></div>
+
+      <div id="login-form">
+        <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="tu@email.com"/></div>
+        <div class="field"><label>Contraseña</label><div style="position:relative"><input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()" style="padding-right:2.5rem;width:100%"/><button type="button" onclick="togglePass('login-pass',this)" style="position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray);font-size:1rem">&#128065;</button></div></div>
+        <button class="btn btn-primary" onclick="login()">Entrar →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ──────── APP ──────── -->
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div class="topbar-logo" style="display:flex;align-items:center"><span class="logo-texto" style="font-family:var(--font-serif);font-size:1.4rem">Tu Taller</span></div>
+    <div class="topbar-right">
+      <div class="user-chip">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <span class="user-name-text" id="user-display">—</span>
+      </div>
+      <button class="logout-btn" onclick="logout()">Salir</button>
+    </div>
+  </div>
+  <div class="nav-tabs" id="nav-tabs"></div>
+  <div class="main-content">
+
+    <!-- CALENDARIO -->
+    <div id="tab-calendario" style="display:none">
+      <div id="recovery-banner" style="display:none"></div>
+      <div class="cal-header">
+        <button class="nav-btn" id="cal-nav-prev" onclick="navCal(-1)">‹</button>
+        <div class="cal-title" id="cal-label">—</div>
+        <button class="nav-btn" id="cal-nav-next" onclick="navCal(1)">›</button>
+        <button class="btn btn-ghost btn-sm" onclick="irHoy()">Hoy</button>
+      </div>
+      <div class="chip-filter-row" id="cal-chip-filter">
+        <button class="chip" data-tipo="Torno" onclick="toggleClaseFiltro('Torno')">Torno</button>
+        <button class="chip" data-tipo="Modelado" onclick="toggleClaseFiltro('Modelado')">Modelado</button>
+      </div>
+      <div id="cal-container"></div>
+      <div class="cal-legend">
+        <span><i class="legend-dot legend-dot-green"></i> Huecos disponibles</span>
+        <span><i class="legend-dot legend-dot-orange"></i> Tu reserva</span>
+      </div>
+    </div>
+
+    <!-- PERFIL -->
+    <div id="tab-perfil" style="display:none">
+      <div class="section-hdr"><div class="section-title">Mi perfil</div></div>
+      <div id="profile-header-wrap"></div>
+      <div class="profile-section-label">¿Qué practicas?</div>
+      <div class="practica-tags" id="practica-tags"></div>
+      <div class="profile-section-label">Próximas reservas</div>
+      <div id="proximas-reservas" style="margin-bottom:1.5rem"></div>
+      <div class="profile-section-label">Historial de clases</div>
+      <div class="historial-card" style="margin-bottom:1.5rem">
+        <div class="historial-num" id="historial-num">—</div>
+        <div class="historial-label">Sesiones completadas</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;max-width:720px">
+        <div class="info-card">
+          <div id="perfil-info"></div>
+          <div id="perfil-msg" style="margin-top:1rem"></div>
+          <div class="field" style="margin-top:1rem"><label>Nueva contraseña</label><input type="password" id="new-pass" placeholder="Nueva contraseña"/></div>
+          <div class="field"><label>Confirmar</label><input type="password" id="conf-pass" placeholder="Repetir contraseña"/></div>
+          <button class="btn btn-outline btn-sm" onclick="cambiarPassword()">Cambiar contraseña</button>
+        </div>
+        <div class="info-card">
+          <div class="info-card-title">Mensualidad</div>
+          <div id="pago-section"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN CLASES -->
+    <div id="tab-admin-clases" style="display:none">
+      <div class="section-hdr"><div class="section-title">Gestión de clases</div></div>
+      <div id="admin-msg"></div>
+      <div class="form-panel">
+        <div class="form-panel-title">Nueva clase</div>
+        <div class="fg">
+          <div class="field"><label>Fecha</label><input type="date" id="a-fecha"/></div>
+          <div class="field"><label>Hora</label>
+            <select id="a-hora">
+              <option value="10:00-13:00">10:00 – 13:00</option>
+              <option value="18:00-21:00">18:00 – 21:00</option>
+              <option value="10:00-12:00">10:00 – 12:00</option>
+              <option value="12:00-14:00">12:00 – 14:00</option>
+              <option value="17:00-19:00">17:00 – 19:00</option>
+              <option value="19:00-21:00">19:00 – 21:00</option>
+            </select>
+          </div>
+          <div class="field"><label>Tipo</label>
+            <select id="a-tipo">
+              <option value="Torno">Torno</option>
+              <option value="Modelado">Modelado</option>
+            </select>
+          </div>
+          <div class="field"><label>Capacidad</label><input type="number" id="a-cap" value="8" min="1" max="20"/></div>
+          <div class="field" style="display:flex;gap:0.5rem;align-items:flex-end">
+            <button class="btn btn-primary btn-sm" onclick="crearClase()" style="width:auto">Crear</button>
+            <button class="btn btn-ghost btn-sm" onclick="crearFestivo()">+ Festivo</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-panel" style="margin-top:1rem">
+        <div class="form-panel-title">Generar mes completo</div>
+        <p style="font-size:0.78rem;color:var(--gray);margin-bottom:1rem">Genera todas las clases de un mes. Las clases se crearán bloqueadas — los alumnos no podrán reservar hasta que tú las abras.</p>
+        <div class="fg">
+          <div class="field"><label>Mes</label>
+            <select id="gen-mes">
+              <option value="2026-07">Julio 2026</option>
+              <option value="2026-08">Agosto 2026</option>
+            </select>
+          </div>
+          <div class="field"><label>Tipo</label>
+            <select id="gen-tipo">
+              <option value="Torno">Torno</option>
+              <option value="Modelado">Modelado</option>
+            </select>
+          </div>
+          <div class="field"><label>Capacidad</label><input type="number" id="gen-cap" value="8" min="1" max="20"/></div>
+        </div>
+        <div class="field"><label>Días de la semana</label>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.3rem">
+            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;text-transform:none;letter-spacing:0"><input type="checkbox" id="gen-lun" checked> Lunes</label>
+            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;text-transform:none;letter-spacing:0"><input type="checkbox" id="gen-mar"> Martes</label>
+            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;text-transform:none;letter-spacing:0"><input type="checkbox" id="gen-mie" checked> Miércoles</label>
+            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;text-transform:none;letter-spacing:0"><input type="checkbox" id="gen-jue"> Jueves</label>
+            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;text-transform:none;letter-spacing:0"><input type="checkbox" id="gen-vie" checked> Viernes</label>
+            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;text-transform:none;letter-spacing:0"><input type="checkbox" id="gen-sab"> Sábado</label>
+          </div>
+        </div>
+        <div class="field"><label>Horarios a generar</label>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.3rem">
+            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;text-transform:none;letter-spacing:0"><input type="checkbox" id="gen-mañana" checked> Mañana (10:00–13:00)</label>
+            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.82rem;text-transform:none;letter-spacing:0"><input type="checkbox" id="gen-tarde" checked> Tarde (18:00–21:00)</label>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" style="width:auto" onclick="generarMes()">Generar clases</button>
+      </div>
+      <div id="admin-clases-tabla"><div class="loading">Cargando...</div></div>
+    </div>
+
+    <!-- ADMIN ALUMNOS -->
+    <div id="tab-admin-alumnos" style="display:none">
+      <div class="section-hdr"><div class="section-title">Alumnos</div><button class="btn btn-primary btn-sm" style="width:auto" onclick="abrirModalNuevaAlumna()">+ Nueva alumna</button></div>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--gray);margin-bottom:0.75rem;text-transform:none;letter-spacing:0"><input type="checkbox" id="chk-mostrar-inactivas" onchange="cargarAdminAlumnos()"> Mostrar inactivas</label>
+      <div id="admin-alumnos-tabla"><div class="loading">Cargando...</div></div>
+    </div>
+
+    <!-- ADMIN CONFIG -->
+    <div id="tab-admin-config" style="display:none">
+      <div class="section-hdr"><div class="section-title">Configuración de pagos</div></div>
+      <div class="info-card" style="max-width:520px">
+        <p style="font-size:0.8rem;color:var(--gray);margin-bottom:1.25rem">Las alumnas pagan desde su perfil con Stripe Checkout. El pago se confirma automáticamente en cuanto Stripe lo procesa — no hace falta revisar el dashboard.</p>
+        <div class="field"><label>1 vez/semana</label><div class="info-card-value">— (ver create-checkout-session)</div></div>
+        <div class="field"><label>2 veces/semana</label><div class="info-card-value">— (ver create-checkout-session)</div></div>
+        <p style="font-size:0.72rem;color:var(--gray)">Para cambiar estos precios hay que editar la Edge Function <code>create-checkout-session</code> y volver a desplegarla.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL GESTIÓN ALUMNO -->
+<div class="app-overlay" id="modal-alumno" style="display:none">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-hdr-title" id="modal-nombre">—</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div id="modal-alumno-config" style="background:var(--bg);border-radius:8px;padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+      <div><label style="font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray);display:block;margin-bottom:0.3rem">Tipo de usuario</label>
+        <select id="modal-tipo-usuario" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:6px;font-family:Montserrat,sans-serif;font-size:0.82rem;background:white">
+          <option value="alumno">Alumno</option>
+          <option value="coworking">Coworking</option>
+        </select>
+      </div>
+      <div><label style="font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray);display:block;margin-bottom:0.3rem">Clase por defecto</label>
+        <select id="modal-tipo-default" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:6px;font-family:Montserrat,sans-serif;font-size:0.82rem;background:white">
+          <option value="Torno">Torno</option>
+          <option value="Modelado">Modelado</option>
+        </select>
+      </div>
+      <div style="grid-column:1/-1"><button class="btn btn-primary btn-sm" style="width:auto" onclick="guardarConfigAlumno()">Guardar configuración</button>
+      <span id="modal-config-msg" style="font-size:0.78rem;margin-left:0.75rem"></span></div>
+    </div>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<!-- MODAL NUEVA ALUMNA -->
+<div class="app-overlay" id="modal-nueva-alumna" style="display:none">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-hdr-title">Nueva alumna</div>
+      <button class="modal-close" onclick="closeModalNuevaAlumna()">×</button>
+    </div>
+    <div class="field"><label>Nombre*</label><input type="text" id="na-nombre" placeholder="Nombre y apellidos"/></div>
+    <div class="field"><label>Email</label><input type="email" id="na-email" placeholder="alumna@email.com"/></div>
+    <div class="field"><label>Teléfono</label><input type="text" id="na-telefono" placeholder="600 000 000"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+      <div class="field"><label>Frecuencia</label>
+        <select id="na-frecuencia"><option value="1vez">1 vez/semana</option><option value="2veces">2 veces/semana</option></select>
+      </div>
+      <div class="field"><label>Clase por defecto</label>
+        <select id="na-tipo-clase"><option value="Torno">Torno</option><option value="Modelado">Modelado</option></select>
+      </div>
+      <div class="field"><label>Día habitual</label><input type="text" id="na-dia" placeholder="Lunes"/></div>
+      <div class="field"><label>Hora habitual</label><input type="text" id="na-hora" placeholder="19:00-21:00"/></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;margin-bottom:1.25rem;text-transform:none;letter-spacing:0"><input type="checkbox" id="na-crear-cuenta" checked> Crear cuenta de acceso (contraseña por defecto)</label>
+    <button class="btn btn-primary btn-sm" style="width:auto" onclick="crearAlumna()">Guardar</button>
+    <div id="na-msg" style="margin-top:1rem;font-size:0.82rem"></div>
+  </div>
+</div>
+
+<div class="app-overlay" id="modal-confirmar-reserva" style="display:none">
+  <div class="modal confirm-modal">
+    <div class="confirm-title">¿Reservar esta clase?</div>
+    <div class="confirm-subtitle">Confirma tu asistencia para la sesión de cerámica.</div>
+    <div class="confirm-rows">
+      <div class="confirm-row"><span class="confirm-row-label">Fecha</span><span class="confirm-row-value" id="confirm-fecha"></span></div>
+      <div class="confirm-row"><span class="confirm-row-label">Horario</span><span class="confirm-row-value" id="confirm-hora"></span></div>
+      <div class="confirm-row"><span class="confirm-row-label">Plazas disponibles</span><span class="confirm-row-value" id="confirm-plazas"></span></div>
+    </div>
+    <div class="field" style="text-align:left;margin-top:0.75rem">
+      <label>Modalidad</label>
+      <select id="confirm-modalidad" style="width:100%"></select>
+      <div id="confirm-modalidad-nota" style="font-size:0.72rem;color:var(--gray);margin-top:0.3rem"></div>
+    </div>
+    <div id="confirm-recuperacion-wrap" style="display:none;text-align:left;margin-top:0.75rem;background:var(--bg);border-radius:8px;padding:0.6rem 0.75rem">
+      <div style="font-size:0.82rem;font-weight:600">Esta reserva usará tu crédito de recuperación</div>
+      <div id="confirm-recuperacion-nota" style="font-size:0.72rem;color:var(--gray);margin-top:0.2rem"></div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:1rem;margin-bottom:0.6rem" onclick="confirmarReservaModal()">Confirmar reserva</button>
+    <button class="btn btn-ghost" style="width:100%" onclick="cerrarModalReserva()">Atrás</button>
+  </div>
+</div>
+
+<script>
+// ── CONFIGURACIÓN: cambia estos valores por los de tu taller ──
+const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
+const SUPABASE_KEY = 'TU_ANON_KEY';   // Supabase → Project Settings → API → anon public
+const ADMIN_EMAIL  = 'admin@tu-taller.com';
+const PROF_EMAIL   = 'profe@tu-taller.com';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    storage: window.sessionStorage,
+    storageKey: 'taller-auth',
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  }
+});
+
+let user=null, alumno=null, isAdmin=false, isProf=false;
+let calOffset=0, calView='mes';
+let clasesCache=[], misResCache=[];
+let claseFiltro=null;
+
+async function toggleClaseFiltro(tipo){
+  claseFiltro=(claseFiltro===tipo)?null:tipo;
+  document.querySelectorAll('#cal-chip-filter .chip').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-tipo')===claseFiltro);
+  });
+  const panelAbierto=document.getElementById('day-panel');
+  const fechaAbierta=panelAbierto&&panelAbierto.dataset.fecha;
+  await cargarCalendario();
+  if(fechaAbierta) mostrarDia(fechaAbierta);
+}
+
+/* ── UTIL ─────────────────────────────── */
+const fmt = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const fmtES= s => new Date(s+'T00:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long'});
+const dias  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const getDia= s => dias[new Date(s+'T00:00:00').getDay()];
+function initials(name){ return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+function esc(s){ const d=document.createElement('div'); d.textContent=String(s??''); return d.innerHTML; }
+
+function showMsg(id,txt,type='error'){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.innerHTML=`<div class="msg msg-${type}">${esc(txt)}</div>`;
+  if(type!=='error') setTimeout(()=>{ if(el) el.innerHTML=''; },3500);
+}
+
+function puedeReservar(fecha,hora){
+  const [h]=hora.split('-');
+  const claseDate=new Date(fecha+'T'+h+':00');
+  const ahoraMadrid=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Madrid'}));
+  return (claseDate-ahoraMadrid)>30*60*1000;
+}
+function puedeCancelar(fecha,hora){
+  const [h]=hora.split('-');
+  const claseDate=new Date(fecha+'T'+h+':00');
+  const ahoraMadrid=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Madrid'}));
+  return (claseDate-ahoraMadrid)>2*60*60*1000;
+}
+
+/* ── AUTH ────────────────────────────── */
+let loginInProgress = false;
+async function login(){
+  if(loginInProgress) return;
+  loginInProgress = true;
+  try{
+    const e=document.getElementById('login-email').value.trim();
+    const p=document.getElementById('login-pass').value;
+    if(!e||!p) return showMsg('auth-msg','Completa todos los campos');
+
+    const {data,error}=await Promise.race([
+      sb.auth.signInWithPassword({email:e,password:p}),
+      new Promise((_,reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+    ]);
+
+    if(error) return showMsg('auth-msg','Email o contraseña incorrectos');
+    await initApp(data.user);
+  }catch(err){
+    console.error('[Login Error]', err);
+    showMsg('auth-msg', err.message === 'Timeout' ? 'Tiempo de espera agotado. Intenta de nuevo.' : 'Error al iniciar sesión. Intenta de nuevo.');
+  }finally{
+    loginInProgress = false;
+  }
+}
+async function logout(){ await sb.auth.signOut(); }
+async function initApp(u){
+  try{
+    localStorage.removeItem('clasesCache');
+    sessionStorage.removeItem('clasesCache');
+    user=u; isAdmin=u.email===ADMIN_EMAIL; isProf=u.email===PROF_EMAIL;
+
+    let alumno_data = null;
+    if(!isAdmin){
+      try{
+        const {data, error} = await Promise.race([
+          sb.from('alumnos').select('*').eq('user_id',u.id).single(),
+          new Promise((_,reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
+        ]);
+        if(!error) alumno_data = data;
+      }catch(err){
+        console.warn('[Alumno Load]', err);
+      }
+    }
+
+    alumno=alumno_data;
+    document.getElementById('auth-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    if(!isAdmin && alumno && alumno.activo===false){
+      const banner=document.createElement('div');
+      banner.style.cssText='background:#C0392B;color:#fff;padding:0.75rem 1rem;text-align:center;font-size:0.85rem';
+      banner.textContent='Tu cuenta está dada de baja. Contacta con el taller si quieres reactivarla.';
+      document.getElementById('app').prepend(banner);
+    }
+    const nombre=alumno_data?.nombre_alumno||u.email;
+    document.getElementById('user-display').textContent=nombre;
+    document.getElementById('user-avatar').textContent=isAdmin?'AD':(isProf?'PR':initials(nombre));
+    const chipFiltro=document.getElementById('cal-chip-filter');
+    if(chipFiltro) chipFiltro.style.display=(isAdmin||isProf)?'none':'flex';
+    const nav=document.getElementById('nav-tabs');
+    if(isAdmin){
+      nav.innerHTML=`
+        <button class="nav-tab" onclick="showTab('admin-clases',this)">Clases</button>
+        <button class="nav-tab" onclick="showTab('admin-alumnos',this)">Alumnos</button>
+        <button class="nav-tab" onclick="showTab('calendario',this)">Calendario</button>
+        <button class="nav-tab" onclick="showTab('admin-config',this)">Pagos</button>`;
+      showTab('admin-clases',nav.firstElementChild);
+    } else if(isProf){
+      nav.innerHTML=`
+        <button class="nav-tab" onclick="showTab('admin-alumnos',this)">Alumnos</button>
+        <button class="nav-tab" onclick="showTab('calendario',this)">Calendario</button>`;
+      showTab('calendario',nav.firstElementChild);
+    } else {
+      nav.innerHTML=`
+        <button class="nav-tab" onclick="showTab('calendario',this)">Calendario</button>
+        <button class="nav-tab" onclick="showTab('perfil',this)">Perfil</button>`;
+      showTab('calendario',nav.firstElementChild);
+    }
+    cargarPerfil();
+  }catch(err){
+    console.error('[InitApp Error]', err);
+    alert('Hubo un problema al cargar tu perfil. Refresca la página (F5) — tu sesión sigue iniciada, no hace falta volver a entrar.');
+  }
+}
+
+/* ── TABS ────────────────────────────── */
+function showTab(tab,btn){
+  document.querySelectorAll('[id^="tab-"]').forEach(t=>t.style.display='none');
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).style.display='block';
+  if(btn) btn.classList.add('active');
+  if(tab==='calendario') cargarCalendario();
+  else if(tab==='admin-clases') cargarAdminClases();
+  else if(tab==='admin-alumnos') cargarAdminAlumnos();
+}
+
+/* ── CALENDAR ────────────────────────── */
+function setView(v){
+  calView=v; calOffset=0;
+  document.getElementById('btn-semana').classList.toggle('active',v==='semana');
+  document.getElementById('btn-mes').classList.toggle('active',v==='mes');
+  cargarCalendario();
+}
+function navCal(d){ calOffset+=d; cargarCalendario(); }
+function irHoy(){ calOffset=0; cargarCalendario(); }
+
+const CAL_ALUMNO_MIN_IDX=2026*12+8;  // septiembre 2026
+const CAL_ALUMNO_MAX_IDX=2026*12+11; // diciembre 2026
+async function cargarCalendario(){
+  const hoy=new Date();
+  const limitado=!isAdmin && !isProf;
+  let minOffset=-Infinity, maxOffset=Infinity;
+  if(limitado){
+    const baseIdx=hoy.getFullYear()*12+hoy.getMonth();
+    minOffset=CAL_ALUMNO_MIN_IDX-baseIdx;
+    maxOffset=CAL_ALUMNO_MAX_IDX-baseIdx;
+    if(calOffset<minOffset) calOffset=minOffset;
+    if(calOffset>maxOffset) calOffset=maxOffset;
+  }
+  const prevBtn=document.getElementById('cal-nav-prev'), nextBtn=document.getElementById('cal-nav-next');
+  if(prevBtn) prevBtn.disabled=limitado && calOffset<=minOffset;
+  if(nextBtn) nextBtn.disabled=limitado && calOffset>=maxOffset;
+  const mes=new Date(hoy.getFullYear(),hoy.getMonth()+calOffset,1);
+  const desde=fmt(mes);
+  const fin=new Date(mes.getFullYear(),mes.getMonth()+1,0);
+  const hasta=fmt(fin);
+  const label=mes.toLocaleDateString('es-ES',{month:'long',year:'numeric'}).replace(/^\w/,c=>c.toUpperCase());
+  document.getElementById('cal-label').textContent=label;
+  const {data:clasesMes}=await sb.from('clases').select('*').gte('fecha',desde).lte('fecha',hasta).order('fecha').order('hora').limit(1000);
+  clasesCache=clasesMes||[];
+  if(!isAdmin && !isProf){
+    // Las clases bloqueadas se ocultan para reservar, pero quien ya tiene plaza debe poder verla y cancelarla
+    let idsMias=new Set();
+    if(alumno && clasesCache.some(c=>c.bloqueada)){
+      const {data:mrBloq}=await sb.from('reservas').select('clase_id').eq('alumno_id',alumno.id).eq('estado','reservado').in('clase_id',clasesCache.filter(c=>c.bloqueada).map(c=>c.id));
+      idsMias=new Set((mrBloq||[]).map(r=>r.clase_id));
+    }
+    clasesCache=clasesCache.filter(c=>!c.bloqueada||idsMias.has(c.id));
+  }
+  const idsDelMes=clasesCache.map(c=>c.id);
+
+  let conteo={}, conteoAlumnos={}, conteoTorno={}, misIds=new Set();
+  if(idsDelMes.length>0){
+    const [tr,mr]=await Promise.all([
+      sb.rpc('ocupacion_clases',{p_clase_ids:idsDelMes}),
+      alumno ? sb.from('reservas').select('id,clase_id,tipo_clase').eq('alumno_id',alumno.id).eq('estado','reservado').in('clase_id',idsDelMes) : {data:[]}
+    ]);
+    misResCache=mr.data||[];
+    (tr.data||[]).forEach(r=>{ conteo[r.clase_id]=r.total; conteoAlumnos[r.clase_id]=r.alumnos; conteoTorno[r.clase_id]=r.torno; });
+    misIds=new Set((mr.data||[]).map(r=>r.clase_id));
+  }
+
+  if(alumno){
+    const {data:alActual}=await sb.from('alumnos').select('clases_recuperar').eq('id',alumno.id).single();
+    if(alActual) alumno.clases_recuperar=alActual.clases_recuperar;
+  }
+
+  const rb=document.getElementById('recovery-banner');
+  if(alumno?.clases_recuperar>0){
+    rb.style.display='flex';
+    let notaCaducidad='Reserva otro día disponible dentro del plazo';
+    if(alumno.tipo_usuario!=='coworking'){
+      const {data:creditos}=await sb.rpc('creditos_pendientes',{p_alumno_id:alumno.id});
+      if(creditos&&creditos.length) notaCaducidad='La próxima caduca el '+fmtES(creditos[0].fecha_limite);
+    }
+    rb.innerHTML=`<div class="recovery-num">${alumno.clases_recuperar}</div>
+      <div class="recovery-info"><strong>Clase${alumno.clases_recuperar>1?'s':''} por recuperar</strong>
+      <span>${esc(notaCaducidad)}</span></div>`;
+  } else rb.style.display='none';
+
+  const cont=document.getElementById('cal-container');
+  renderMes(cont,clasesCache,conteo,misIds,desde,conteoAlumnos,conteoTorno);
+}
+
+function claseCard(c,conteo,misIds,conteoAlumnos,conteoTorno){
+  conteoAlumnos=conteoAlumnos||{};
+  conteoTorno=conteoTorno||{};
+  const ocu=conteo[c.id]||0;
+  const ocuAlumnos=conteoAlumnos[c.id]||0;
+  const ocuTorno=conteoTorno[c.id]||0;
+  const esCoworker=alumno?.tipo_usuario==='coworking';
+  // Coworking: solo puede ocupar plazas de Torno sobrantes.
+  // Alumnas: cupo compartido de 9 (Torno + Modelado) por turno.
+  const capEfectiva = esCoworker
+    ? c.capacidad_max - ocuTorno
+    : (c.capacidad_alumnos||9) - ocuAlumnos;
+  const lib=Math.max(0, capEfectiva);
+  const pct=Math.round((ocu/(c.capacidad_alumnos||9))*100);
+  const ya=misIds.has(c.id);
+  if(c.es_festivo) return `<div class="class-card festivo">
+    <div class="class-card-accent"></div>
+    <div class="class-dia">${esc(getDia(c.fecha))} · ${esc(fmtES(c.fecha))}</div>
+    <div class="class-hora">${esc(c.hora)}</div>
+    <span class="tag tag-festivo">Festivo</span>
+    <div style="font-size:0.78rem;color:var(--gray)">Sin clase este día</div>
+  </div>`;
+  const podRes=puedeReservar(c.fecha,c.hora), podCan=puedeCancelar(c.fecha,c.hora);
+  let accion='';
+  if(ya){
+    accion=`<div class="badge-ok"><span>✓</span> Reservado</div><br>
+      ${podCan?`<button class="btn btn-danger btn-sm" onclick="cancelar('${esc(c.id)}',true)">Cancelar reserva</button>`
+              :`<div class="time-note">No cancelable — menos de 4 h</div>`}`;
+  } else if(lib<=0){
+    accion=`<div class="badge-lleno">Sin plazas disponibles</div>`;
+  } else if(!podRes){
+    accion=`<div class="badge-lleno">Reserva cerrada — menos de 30 min</div>`;
+  } else {
+    accion=`<button class="btn btn-outline btn-sm" onclick="reservar('${esc(c.id)}')">Reservar plaza</button>`;
+  }
+  return `<div class="class-card">
+    <div class="class-card-accent"></div>
+    <div class="class-dia">${esc(getDia(c.fecha))} · ${esc(fmtES(c.fecha))}</div>
+    <div class="class-hora">${esc(c.hora)}</div>
+    <div class="spots-text">${esc(lib)} plaza${lib!==1?'s':''} libre${lib!==1?'s':''} ${esCoworker?'(coworking, solo torno)':'· '+Math.max(0,c.capacidad_max-ocuTorno)+' de torno'}</div>
+    <div class="spots-bar"><div class="spots-fill" style="width:${pct}%"></div></div>
+    ${accion}
+  </div>`;
+}
+
+function renderSemana(cont,clases,conteo,misIds,conteoAlumnos){
+  conteoAlumnos=conteoAlumnos||{};
+  // Build week: Mon-Fri of current week
+  const hoy=new Date();
+  const dd=hoy.getDay()===0?6:hoy.getDay()-1;
+  const lun=new Date(hoy); lun.setDate(hoy.getDate()-dd+calOffset*7);
+  const hoyStr=fmt(hoy);
+  const diasSemana=[];
+  for(let i=0;i<5;i++){
+    const d=new Date(lun); d.setDate(lun.getDate()+i);
+    diasSemana.push(fmt(d));
+  }
+  const diasNombres=['Lun','Mar','Mié','Jue','Vie'];
+  const byDate={};
+  clases.forEach(c=>{ if(!byDate[c.fecha]) byDate[c.fecha]=[]; byDate[c.fecha].push(c); });
+
+  const esCoworker=alumno?.tipo_usuario==='coworking';
+
+  let html='<div class="week-grid">';
+  diasSemana.forEach((ds,i)=>{
+    const dc=(byDate[ds]||[]).filter(c=>!c.es_festivo);
+    const fecha=new Date(ds+'T00:00:00');
+    const diaNum=fecha.getDate();
+    const mesNom=fecha.toLocaleDateString('es-ES',{month:'short'});
+    const isToday=ds===hoyStr;
+    const fest=(byDate[ds]||[]).some(c=>c.es_festivo);
+    html+=`<div class="week-col">
+      <div class="week-col-header${isToday?' today':''}">
+        <div class="week-col-dia">${diasNombres[i]}</div>
+        <div class="week-col-fecha">${diaNum} ${mesNom}${fest?' 🔴':''}</div>
+      </div>`;
+    if(fest){
+      html+=`<div class="week-col-empty">Festivo</div>`;
+    } else if(!dc.length){
+      html+=`<div class="week-col-empty">Sin clases</div>`;
+    } else {
+      dc.forEach(c=>{
+        const ocu=conteo[c.id]||0;
+        const ocuAlumnos=conteoAlumnos[c.id]||0;
+        const cap=esCoworker?c.capacidad_max-ocuAlumnos:(c.capacidad_alumnos||9)-ocuAlumnos;
+        const lib=Math.max(0,cap);
+        const yaRes=misIds.has(c.id);
+        const tipo=c.tipo_clase.toLowerCase();
+        const podRes=puedeReservar(c.fecha,c.hora);
+        const podCan=puedeCancelar(c.fecha,c.hora);
+        html+=`<div class="week-slot${yaRes?' mi-clase':''}" onclick="abrirSlot('${c.id}')">
+          <div class="week-slot-hora">${c.hora}</div>
+          <div class="week-slot-tipo ${tipo}">${c.tipo_clase}</div>
+          <div class="week-slot-plazas">${lib} plaza${lib!==1?'s':''} libre${lib!==1?'s':''}</div>
+          ${yaRes?'<div class="week-slot-badge">✓ Reservado</div>':''}
+        </div>`;
+      });
+    }
+    html+='</div>';
+  });
+  html+='</div><div id="slot-panel" style="margin-top:1rem"></div>';
+  cont.innerHTML=html;
+}
+
+async function abrirSlot(cid){
+  const panel=document.getElementById('slot-panel'); if(!panel) return;
+  const cacheIds=clasesCache.map(c=>c.id);
+  const {data:tr}= cacheIds.length
+    ? await sb.rpc('ocupacion_clases',{p_clase_ids:cacheIds})
+    : {data:[]};
+  const conteo={}; (tr||[]).forEach(r=>{ conteo[r.clase_id]=r.total; });
+  const conteoAlumnos={}; (tr||[]).forEach(r=>{ conteoAlumnos[r.clase_id]=r.alumnos; });
+  const conteoTorno={}; (tr||[]).forEach(r=>{ conteoTorno[r.clase_id]=r.torno; });
+  const misIds=new Set(misResCache.map(r=>r.clase_id));
+  const c=clasesCache.find(x=>x.id===cid); if(!c) return;
+  panel.innerHTML=`<div class="day-detail-panel">${claseCard(c,conteo,misIds,conteoAlumnos,conteoTorno)}</div>`;
+  const appEl=document.getElementById('app');
+  if(appEl) appEl.scrollTo({top:panel.offsetTop-70,behavior:'smooth'});
+  else panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function renderMes(cont,clases,conteo,misIds,desde,conteoAlumnos,conteoTorno){
+  conteoAlumnos=conteoAlumnos||{};
+  conteoTorno=conteoTorno||{};
+  var base=new Date(desde+'T00:00:00');
+  var year=base.getFullYear(), month=base.getMonth();
+  var primero=new Date(year,month,1).getDay();
+  var off=primero===0?6:primero-1;
+  var total=new Date(year,month+1,0).getDate();
+  var hoyStr=fmt(new Date());
+  var esCoworker=alumno&&alumno.tipo_usuario==='coworking';
+  var byDate={};
+  clases.forEach(function(c){ if(!byDate[c.fecha]) byDate[c.fecha]=[]; byDate[c.fecha].push(c); });
+
+  // Build grid
+  var wrapper=document.createElement('div');
+  wrapper.className='month-grid';
+
+  // Headers
+  ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(function(d){
+    var hdr=document.createElement('div');
+    hdr.className='month-day-hdr';
+    hdr.textContent=d;
+    wrapper.appendChild(hdr);
+  });
+
+  // Empty cells before month starts
+  for(var i=0;i<off;i++){
+    var empty=document.createElement('div');
+    empty.className='month-day other-month';
+    wrapper.appendChild(empty);
+  }
+
+  // Day cells
+  for(var d=1;d<=total;d++){
+    var ds=year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var dc=byDate[ds]||[];
+    var fest=dc.some(function(c){return c.es_festivo;});
+    var tengoReserva=dc.some(function(c){return misIds.has(c.id);});
+    var clasesFiltradas=dc.filter(function(c){return !c.es_festivo;});
+    if(claseFiltro) clasesFiltradas=clasesFiltradas.filter(function(c){return c.tipo_clase===claseFiltro;});
+
+    var cell=document.createElement('div');
+    var cellCls='month-day';
+    if(ds===hoyStr) cellCls+=' today';
+    if(fest) cellCls+=' festivo-day';
+    if(tengoReserva) cellCls+=' tiene-reserva';
+    cell.className=cellCls;
+    cell.setAttribute('data-fecha',ds);
+
+    var numDiv=document.createElement('div');
+    numDiv.className='day-num';
+    numDiv.textContent=d;
+    cell.appendChild(numDiv);
+
+    if(fest){
+      var fl=document.createElement('div');
+      fl.className='festivo-lbl';
+      fl.textContent='Festivo';
+      cell.appendChild(fl);
+    }
+
+    var hayHuecoDot=clasesFiltradas.some(function(c){
+      var ocuA=conteoAlumnos[c.id]||0, ocuT=conteoTorno[c.id]||0;
+      var capS=esCoworker?c.capacidad_max-ocuT:(c.capacidad_alumnos||9)-ocuA;
+      return capS>0;
+    });
+    if(!fest && (hayHuecoDot||tengoReserva)){
+      var dotsDiv=document.createElement('div');
+      dotsDiv.className='day-dots';
+      if(hayHuecoDot){ var dg=document.createElement('span'); dg.className='dot dot-available'; dotsDiv.appendChild(dg); }
+      if(tengoReserva){ var dn=document.createElement('span'); dn.className='dot dot-mine'; dotsDiv.appendChild(dn); }
+      cell.appendChild(dotsDiv);
+    }
+
+    var slotsDiv=document.createElement('div');
+    slotsDiv.className='day-slots';
+
+    clasesFiltradas.forEach(function(c){
+      var yaRes=misIds.has(c.id);
+      var ocuA=conteoAlumnos[c.id]||0;
+      var ocuT=conteoTorno[c.id]||0;
+      var capS=esCoworker?c.capacidad_max-ocuT:(c.capacidad_alumnos||9)-ocuA;
+      var libS=Math.max(0,capS);
+      var slot=document.createElement('div');
+      slot.className='day-slot'+(yaRes?' day-slot-res':libS===0?' day-slot-full':'');
+
+      var horaSpan=document.createElement('span');
+      horaSpan.textContent=c.hora.split(':')[0]+'h';
+      slot.appendChild(horaSpan);
+
+      var valSpan=document.createElement('span');
+      if(yaRes){ valSpan.textContent='✓'; valSpan.style.color='var(--green)'; }
+      else if(libS>0){ valSpan.textContent=libS; valSpan.style.color='#888'; }
+      else { valSpan.textContent='—'; valSpan.style.color='#ccc'; }
+      slot.appendChild(valSpan);
+      slotsDiv.appendChild(slot);
+    });
+
+    cell.appendChild(slotsDiv);
+    wrapper.appendChild(cell);
+  }
+
+  var panel=document.createElement('div');
+  panel.id='day-panel';
+
+  cont.innerHTML='';
+  cont.appendChild(wrapper);
+  cont.appendChild(panel);
+
+  // Event delegation
+  wrapper.addEventListener('click',function(e){
+    var cell=e.target.closest('[data-fecha]');
+    if(cell) mostrarDia(cell.getAttribute('data-fecha'));
+  });
+}
+
+
+async function mostrarDia(fecha){
+  const panel=document.getElementById('day-panel'); if(!panel) return;
+  panel.dataset.fecha=fecha;
+  const dc=clasesCache.filter(c=>c.fecha===fecha);
+  if(!dc.length){ panel.innerHTML=''; return; }
+  const idsDelDia=dc.map(c=>c.id);
+
+  if(isAdmin || isProf){
+    const [resData, todosAlumnos]=await Promise.all([
+      sb.from('reservas').select('id,clase_id,estado,alumno_id,tipo_clase,alumnos(id,nombre_alumno,clases_recuperar,tipo_clase_default)').in('clase_id',idsDelDia),
+      sb.from('alumnos').select('id,nombre_alumno,tipo_clase_default,clases_recuperar,ultimo_pago_mes').eq('activo',true).order('nombre_alumno')
+    ]);
+    const todasRes=resData.data||[];
+    const listaAlumnos=todosAlumnos.data||[];
+    // Guardamos datos para los handlers de botones
+    window._adminDiaData={todasRes,listaAlumnos,fecha};
+    const mesActualDia=new Date().toISOString().slice(0,7);
+    var panelHtml='<div class="day-detail-panel"><div class="day-detail-title">'+esc(getDia(fecha))+', '+esc(fmtES(fecha))+'</div>';
+    dc.forEach(function(c,ci){
+      if(c.es_festivo) return;
+      const resDeClase=todasRes.filter(r=>r.clase_id===c.id);
+      const reservados=resDeClase.filter(r=>r.estado==='reservado');
+      const cancelados=resDeClase.filter(r=>r.estado==='cancelado');
+      const idsReservados=new Set(reservados.map(r=>(r.alumnos&&r.alumnos.id)||r.alumno_id));
+      const disponibles=listaAlumnos.filter(a=>!idsReservados.has(a.id));
+      panelHtml+='<div class="form-panel" style="margin-bottom:1rem">';
+      const tornoDeClase=reservados.filter(r=>(r.tipo_clase||'Torno')==='Torno').length;
+      panelHtml+='<div class="form-panel-title">'+esc(c.hora)+' — '+reservados.length+'/'+c.capacidad_alumnos+' plazas · '+tornoDeClase+'/'+c.capacidad_max+' Torno</div>';
+      if(reservados.length){
+        panelHtml+='<div style="margin-bottom:0.75rem"><div style="font-size:0.68rem;font-weight:700;color:var(--green);margin-bottom:0.4rem">Vienen ('+reservados.length+')</div>';
+        reservados.forEach(function(r,ri){
+          var aid=r.alumnos&&r.alumnos.id||r.alumno_id||'';
+          var alumnoFallback=listaAlumnos.find(function(a){return a.id===aid;})||{};
+          var nombre=(r.alumnos&&r.alumnos.nombre_alumno)||alumnoFallback.nombre_alumno||'';
+          var tipoReserva=r.tipo_clase||(r.alumnos&&r.alumnos.tipo_clase_default)||alumnoFallback.tipo_clase_default||'Torno';
+          var rec=((r.alumnos&&r.alumnos.clases_recuperar)||alumnoFallback.clases_recuperar||0)>0?' ✕':'';
+          var pagoBadge=alumnoFallback.ultimo_pago_mes===mesActualDia?' <span style="color:var(--green)">✓</span>':' <span style="color:var(--gray)">–</span>';
+          panelHtml+='<div style="padding:0.4rem 0;border-bottom:1px solid var(--border)">';
+          panelHtml+='<div style="font-size:0.83rem;font-weight:600;margin-bottom:0.3rem">'+esc(nombre)+esc(rec)+pagoBadge+'</div>';
+          panelHtml+='<div style="display:flex;align-items:center;gap:0.5rem">';
+          panelHtml+='<select data-rid="'+esc(r.id)+'" data-fecha="'+esc(fecha)+'" onchange="adminCambiarTipoClase(this)" style="font-size:0.78rem;padding:0.2rem 0.4rem;border:1px solid var(--border);border-radius:5px;font-family:Montserrat,sans-serif;background:#fff">';
+          panelHtml+='<option value="Torno"'+(tipoReserva==='Torno'?' selected':'')+'>Torno</option>';
+          panelHtml+='<option value="Modelado"'+(tipoReserva==='Modelado'?' selected':'')+'>Modelado</option>';
+          panelHtml+='</select>';
+          panelHtml+='<button class="btn btn-danger btn-sm" data-rid="'+esc(r.id)+'" data-fecha="'+esc(fecha)+'" onclick="adminCancelarDia(this)">Cancelar</button>';
+          panelHtml+='</div></div>';
+        });
+        panelHtml+='</div>';
+      }
+      if(cancelados.length){
+        panelHtml+='<div style="margin-bottom:0.75rem"><div style="font-size:0.68rem;font-weight:700;color:#C0392B;margin-bottom:0.4rem">Han cancelado ('+cancelados.length+')</div>';
+        cancelados.forEach(function(r){
+          var aid=r.alumnos&&r.alumnos.id||r.alumno_id||'';
+          var alumnoFb=listaAlumnos.find(function(a){return a.id===aid;})||{};
+          var nombreC=(r.alumnos&&r.alumnos.nombre_alumno)||alumnoFb.nombre_alumno||'';
+          panelHtml+='<div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--border)">';
+          panelHtml+='<span style="font-size:0.83rem;color:var(--gray);text-decoration:line-through">'+esc(nombreC)+'</span>';
+          panelHtml+='<button class="btn btn-green btn-sm" data-aid="'+esc(aid)+'" data-cid="'+esc(c.id)+'" data-fecha="'+esc(fecha)+'" onclick="adminReservarDia(this)">Añadir</button>';
+          panelHtml+='</div>';
+        });
+        panelHtml+='</div>';
+      }
+      panelHtml+='<div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem">';
+      panelHtml+='<select id="sel-'+esc(c.id)+'" style="flex:1;padding:0.5rem;border:1px solid var(--border);border-radius:6px;font-family:Montserrat,sans-serif;font-size:0.82rem"><option value="">Añadir alumno</option>';
+      disponibles.forEach(function(a){ panelHtml+='<option value="'+esc(a.id)+'">'+esc(a.nombre_alumno)+'</option>'; });
+      panelHtml+='</select>';
+      panelHtml+='<button class="btn btn-green btn-sm" data-cid="'+esc(c.id)+'" data-fecha="'+esc(fecha)+'" onclick="adminAnadirDesdeSelector(this)">Añadir</button>';
+      panelHtml+='</div>';
+      panelHtml+='</div>';
+    });
+    panelHtml+='</div>';
+    panel.innerHTML=panelHtml;
+    return;
+  }
+
+  const {data:tr}=await sb.rpc('ocupacion_clases',{p_clase_ids:idsDelDia});
+  const conteo={}; (tr||[]).forEach(r=>{ conteo[r.clase_id]=r.total; });
+  const conteoAl={}; (tr||[]).forEach(r=>{ conteoAl[r.clase_id]=r.alumnos; });
+  const conteoTo={}; (tr||[]).forEach(r=>{ conteoTo[r.clase_id]=r.torno; });
+  if(alumno){
+    const {data:mr}=await sb.from('reservas').select('id,clase_id,tipo_clase').eq('alumno_id',alumno.id).eq('estado','reservado').in('clase_id',idsDelDia);
+    misResCache=misResCache.filter(r=>!idsDelDia.includes(r.clase_id));
+    (mr||[]).forEach(r=>misResCache.push(r));
+  }
+  const misIds=new Set(misResCache.map(r=>r.clase_id));
+  const misReservaPorClase=new Map(misResCache.map(r=>[r.clase_id,r]));
+  const esCoworker=alumno&&alumno.tipo_usuario==='coworking';
+  const numReservadas=dc.filter(function(c){ return misIds.has(c.id); }).length;
+  var panelHtml='<div class="day-detail-panel"><div class="day-detail-title">'+esc(getDia(fecha))+', '+esc(fmtES(fecha))+'</div>';
+  panelHtml+='<div class="day-subtitle">'+(numReservadas>0?('Tienes '+numReservadas+' reserva'+(numReservadas!==1?'s':'')+' activa'+(numReservadas!==1?'s':'')+' hoy'):'Clases programadas para hoy')+'</div>';
+  var hayClases=false;
+  var dcVisible=claseFiltro?dc.filter(function(c){return c.es_festivo||c.tipo_clase===claseFiltro||misIds.has(c.id);}):dc;
+  dcVisible.forEach(function(c){
+    if(c.es_festivo){
+      panelHtml+='<div style="color:var(--gray);font-size:0.82rem;padding:0.5rem 0">Festivo — sin clases este día</div>';
+      return;
+    }
+    hayClases=true;
+    var ocuAl=conteoAl[c.id]||0;
+    var ocuTo=conteoTo[c.id]||0;
+    var cap=esCoworker?c.capacidad_max-ocuTo:(c.capacidad_alumnos||9)-ocuAl;
+    var lib=Math.max(0,cap);
+    var ya=misIds.has(c.id);
+    var podRes=puedeReservar(c.fecha,c.hora);
+    var podCan=puedeCancelar(c.fecha,c.hora);
+    var accion='';
+    if(ya){
+      accion=podCan
+        ?'<button class="btn btn-outline btn-sm" onclick="cancelar(\''+esc(c.id)+'\',true)">Cancelar reserva</button>'
+        :'<span style="font-size:0.72rem;color:var(--gray);font-weight:500">No cancelable — menos de 2h</span>';
+    } else if(lib<=0){
+      accion='<button class="btn btn-ghost btn-sm" disabled>Completo</button>';
+    } else if(!podRes){
+      accion='<button class="btn btn-ghost btn-sm" disabled>Cerrado</button>';
+    } else {
+      accion='<button class="btn btn-primary btn-sm" style="width:auto" onclick="reservar(\''+esc(c.id)+'\')">Reservar</button>';
+    }
+    var miReserva=ya?misReservaPorClase.get(c.id):null;
+    var miTipo=miReserva?(miReserva.tipo_clase||'Torno'):c.tipo_clase;
+    var tipoCls=miTipo==='Torno'?'torno':'modelado';
+    var otroTipo=miTipo==='Torno'?'Modelado':'Torno';
+    var tagTipoHtml=(ya&&!esCoworker)
+      ?'<span class="tag tag-'+tipoCls+'" style="margin-bottom:0;cursor:pointer" title="Cambiar a '+otroTipo+'" onclick="cambiarModalidadPropia(\''+esc(miReserva.id)+'\',\''+esc(otroTipo)+'\',\''+esc(fecha)+'\')">'+esc(miTipo)+'</span>'
+      :'<span class="tag tag-'+tipoCls+'" style="margin-bottom:0">'+esc(miTipo)+'</span>';
+    panelHtml+='<div class="slot-card'+(ya?' reservado':'')+'">'
+      +'<div class="slot-card-info">'
+      +'<span class="slot-card-hora">'+esc(c.hora)+'</span>'
+      +tagTipoHtml
+      +(ya?'<span class="tag-reserva">Tu reserva</span>'
+          :(lib>0?'<span style="font-size:0.75rem;color:var(--green)">'+lib+' plaza'+(lib!==1?'s':'')+' libre'+(lib!==1?'s':'')+(esCoworker?' de torno':'')+'</span>':''))
+      +'</div>'
+      +'<div style="flex-shrink:0">'+accion+'</div>'
+      +'</div>';
+  });
+  if(!hayClases) panelHtml+='<div style="color:var(--gray);font-size:0.82rem;padding:0.5rem 0">Sin clases este día</div>';
+  panelHtml+='</div>';
+  panel.innerHTML=panelHtml;
+  const appEl2=document.getElementById('app');
+  if(appEl2) appEl2.scrollTo({top:panel.offsetTop-70,behavior:'smooth'});
+  else panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* ── RESERVAS ────────────────────────── */
+async function reservar(cid){
+  if(!alumno) return alert('Debes estar registrado para reservar');
+  const c=clasesCache.find(x=>x.id===cid);
+  if(!c) return;
+  if(!puedeReservar(c.fecha,c.hora)) return alert('La reserva cierra 30 minutos antes de la clase');
+
+  const {data:ocup}=await sb.rpc('ocupacion_clases',{p_clase_ids:[cid]});
+  const o=(ocup&&ocup[0])||{total:0,alumnos:0,torno:0};
+  const esCoworker=alumno.tipo_usuario==='coworking';
+  const tornoLibres=c.capacidad_max-(o.torno||0);
+  const totalLibres=c.capacidad_alumnos-(o.alumnos||0);
+
+  if(!esCoworker && totalLibres<=0) return alert('La clase está completa');
+  if(esCoworker && tornoLibres<=0) return alert('No hay plazas de torno disponibles para coworking en este turno.');
+
+  let creditos=[];
+  if(!esCoworker){
+    const {data}=await sb.rpc('creditos_pendientes',{p_alumno_id:alumno.id});
+    creditos=data||[];
+    if(!creditos.length) return alert('No tienes clases pendientes de recuperar. Solo puedes reservar una clase cuando tengas un crédito de recuperación disponible (se genera al cancelar una clase con al menos 2h de antelación).');
+  }
+
+  document.getElementById('confirm-fecha').textContent=getDia(c.fecha)+', '+fmtES(c.fecha);
+  document.getElementById('confirm-hora').textContent=c.hora;
+  document.getElementById('confirm-plazas').textContent=Math.max(0,totalLibres)+' de '+c.capacidad_alumnos;
+
+  const puedeTorno=tornoLibres>0;
+  const sel=document.getElementById('confirm-modalidad');
+  sel.innerHTML=(puedeTorno?'<option value="Torno">Torno</option>':'')+'<option value="Modelado">Modelado</option>';
+  sel.value=(puedeTorno && alumno.tipo_clase_default==='Torno')?'Torno':'Modelado';
+  document.getElementById('confirm-modalidad-nota').textContent=puedeTorno?'':'No quedan plazas de Torno en este turno — solo Modelado.';
+  if(esCoworker) sel.value='Torno';
+
+  const wrap=document.getElementById('confirm-recuperacion-wrap');
+  if(!esCoworker){
+    wrap.style.display='block';
+    wrap.dataset.recuperacionId=creditos[0].id;
+    document.getElementById('confirm-recuperacion-nota').textContent='Caduca el '+fmtES(creditos[0].fecha_limite)+(creditos.length>1?' · tienes '+creditos.length+' créditos pendientes (se usará el que antes caduca)':'');
+  } else {
+    wrap.style.display='none';
+    delete wrap.dataset.recuperacionId;
+  }
+
+  const m=document.getElementById('modal-confirmar-reserva');
+  m.dataset.cid=cid;
+  m.style.display='flex';
+}
+function cerrarModalReserva(){ document.getElementById('modal-confirmar-reserva').style.display='none'; }
+async function confirmarReservaModal(){
+  const m=document.getElementById('modal-confirmar-reserva');
+  const cid=m.dataset.cid;
+  const c=clasesCache.find(x=>x.id===cid);
+  const tipoElegido=document.getElementById('confirm-modalidad').value;
+  const wrap=document.getElementById('confirm-recuperacion-wrap');
+  const recuperacionId=wrap.dataset.recuperacionId||null;
+
+  const payload={alumno_id:alumno.id,clase_id:cid,estado:'reservado',tipo_clase:tipoElegido};
+  if(recuperacionId) payload.recuperacion_id=recuperacionId;
+
+  const {error}=await sb.from('reservas').insert(payload);
+  if(error){ cerrarModalReserva(); return alert('Error: '+error.message); }
+
+  const {data:alActual}=await sb.from('alumnos').select('clases_recuperar').eq('id',alumno.id).single();
+  if(alActual) alumno.clases_recuperar=alActual.clases_recuperar;
+
+  cerrarModalReserva();
+  const fecha=c&&c.fecha;
+  await cargarCalendario();
+  if(fecha) mostrarDia(fecha);
+}
+async function cancelar(cid,desdeCalendario=false){
+  if(!confirm('¿Cancelar esta reserva?')) return;
+  const c=clasesCache.find(x=>x.id===cid)||(await sb.from('clases').select('*').eq('id',cid).single()).data;
+  if(c&&!puedeCancelar(c.fecha,c.hora)){ alert('No puedes cancelar con menos de 2 horas de antelación'); return; }
+  const {error:errCan}=await sb.from('reservas').update({estado:'cancelado'}).eq('alumno_id',alumno.id).eq('clase_id',cid);
+  if(errCan){ alert('Error al cancelar: '+errCan.message); return; }
+  const {data:alActual}=await sb.from('alumnos').select('clases_recuperar').eq('id',alumno.id).single();
+  if(alActual) alumno.clases_recuperar=alActual.clases_recuperar;
+  const fecha=c&&c.fecha;
+  await cargarCalendario();
+  if(fecha) mostrarDia(fecha);
+}
+
+/* ── PERFIL ──────────────────────────── */
+async function cargarPerfil(){
+  if(!alumno) return;
+  document.getElementById('profile-header-wrap').innerHTML=`
+    <div class="profile-header">
+      <div class="profile-avatar">${esc(initials(alumno.nombre_alumno))}</div>
+      <div><div class="profile-name">${esc(alumno.nombre_alumno)}</div><div class="profile-email">${esc((user&&user.email)||'')}</div></div>
+    </div>`;
+  const tipoDefault=alumno.tipo_clase_default||'Torno';
+  let tagsHtml='<span class="tag tag-'+(tipoDefault==='Torno'?'torno':'modelado')+'">'+esc(tipoDefault)+'</span>';
+  if(alumno.tipo_usuario==='coworking') tagsHtml+='<span class="tag tag-modelado">Coworking</span>';
+  document.getElementById('practica-tags').innerHTML=tagsHtml;
+
+  const hoyStrPerfil=fmt(new Date());
+  const {data:misReservasPerfil}=await sb.from('reservas').select('id,clase_id,tipo_clase,clases(fecha,hora)').eq('alumno_id',alumno.id).eq('estado','reservado');
+  const conFechaPerfil=(misReservasPerfil||[]).filter(r=>r.clases).map(r=>({rid:r.id,cid:r.clase_id,fecha:r.clases.fecha,hora:r.clases.hora,tipo:r.tipo_clase||'Torno'}));
+  const proximasPerfil=conFechaPerfil.filter(r=>r.fecha>=hoyStrPerfil).sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora)).slice(0,5);
+  const pasadasPerfil=conFechaPerfil.filter(r=>r.fecha<hoyStrPerfil);
+  document.getElementById('historial-num').textContent=pasadasPerfil.length;
+  const puedeElegirModalidad=alumno.tipo_usuario!=='coworking';
+  document.getElementById('proximas-reservas').innerHTML=proximasPerfil.length
+    ? proximasPerfil.map(function(r){
+        var tc=r.tipo==='Torno'?'torno':'modelado';
+        var otro=r.tipo==='Torno'?'Modelado':'Torno';
+        var tagAttrs=puedeElegirModalidad
+          ?' style="margin:0;cursor:pointer" title="Cambiar a '+otro+'" onclick="cambiarModalidadPropia(\''+esc(r.rid)+'\',\''+esc(otro)+'\')"'
+          :' style="margin:0"';
+        return '<div class="mis-item"><div class="mis-item-left"><div class="item-dia">'+esc(getDia(r.fecha))+', '+esc(fmtES(r.fecha))+'</div><div class="item-hora">'+esc(r.hora)+'</div></div><span class="tag tag-'+tc+'"'+tagAttrs+'>'+esc(r.tipo)+'</span></div>';
+      }).join('')
+    : '<p style="font-size:0.82rem;color:var(--gray)">Sin reservas próximas.</p>';
+
+  document.getElementById('perfil-info').innerHTML=`
+    <div class="info-card-title">Frecuencia</div><div class="info-card-value" style="margin-bottom:0">${alumno.frecuencia==='2veces'?'2 veces por semana':'1 vez por semana'}</div>`;
+  const precio=alumno.precio_mensual?String(alumno.precio_mensual):(alumno.frecuencia==='2veces'?'100':'55');
+  const desc=alumno.frecuencia==='2veces'?'2 veces por semana':'1 vez por semana';
+  const mesActual=new Date().toISOString().slice(0,7);
+  const yaPagado=alumno.ultimo_pago_mes===mesActual;
+  document.getElementById('pago-section').innerHTML=`<div class="pay-option">
+      <div><div class="pay-price">${esc(precio)} €<span>/mes</span></div><div class="pay-desc">${esc(desc)}</div></div>
+      ${yaPagado
+        ?`<span class="tag" style="color:var(--green);margin-bottom:0">✓ Pagado este mes</span>`
+        :`<button class="btn btn-green btn-sm" id="btn-pagar" onclick="pagarStripe()">Pagar →</button>`}
+    </div>`;
+}
+async function cambiarModalidadPropia(rid,nuevoTipo,fecha){
+  if(!confirm('¿Cambiar esta clase a '+nuevoTipo+'?')) return;
+  const {error}=await sb.from('reservas').update({tipo_clase:nuevoTipo}).eq('id',rid);
+  if(error){ alert(error.message.includes('Torno')?error.message:'Error al cambiar: '+error.message); return; }
+  if(fecha) mostrarDia(fecha); else cargarPerfil();
+}
+async function pagarStripe(){
+  const btn=document.getElementById('btn-pagar');
+  if(btn){ btn.disabled=true; btn.textContent='Cargando...'; }
+  const {data,error}=await sb.functions.invoke('create-checkout-session');
+  if(error||!data?.url){
+    alert('Error al iniciar el pago. Inténtalo de nuevo.');
+    if(btn){ btn.disabled=false; btn.textContent='Pagar →'; }
+    return;
+  }
+  window.location.href=data.url;
+}
+async function cambiarPassword(){
+  const np=document.getElementById('new-pass').value;
+  const cp=document.getElementById('conf-pass').value;
+  if(np!==cp) return showMsg('perfil-msg','Las contraseñas no coinciden');
+  if(np.length<6) return showMsg('perfil-msg','Mínimo 6 caracteres');
+  const {error}=await sb.auth.updateUser({password:np});
+  if(error) return showMsg('perfil-msg',error.message);
+  showMsg('perfil-msg','Contraseña actualizada','success');
+  document.getElementById('new-pass').value=''; document.getElementById('conf-pass').value='';
+}
+
+/* ── ADMIN CLASES ────────────────────── */
+async function crearClase(){
+  const fecha=document.getElementById('a-fecha').value;
+  const hora=document.getElementById('a-hora').value;
+  const tipo=document.getElementById('a-tipo').value;
+  const cap=parseInt(document.getElementById('a-cap').value);
+  if(!fecha) return showMsg('admin-msg','Selecciona una fecha');
+  const {error}=await sb.from('clases').insert({fecha,hora,tipo_clase:tipo,capacidad_max:cap,dia_semana:getDia(fecha),es_festivo:false});
+  if(error) return showMsg('admin-msg',error.message);
+  showMsg('admin-msg','Clase creada correctamente','success');
+  cargarAdminClases();
+}
+async function crearFestivo(){
+  const fecha=document.getElementById('a-fecha').value;
+  if(!fecha) return showMsg('admin-msg','Selecciona una fecha');
+  const {error}=await sb.from('clases').insert({fecha,hora:'—',tipo_clase:'Festivo',capacidad_max:0,dia_semana:getDia(fecha),es_festivo:true});
+  if(error) return showMsg('admin-msg',error.message);
+  showMsg('admin-msg','Festivo marcado','success');
+  cargarAdminClases();
+}
+async function cargarAdminClases(){
+  const cont=document.getElementById('admin-clases-tabla');
+  const [{data:clases},{data:reservas}]=await Promise.all([
+    sb.from('clases').select('*').order('fecha').order('hora'),
+    sb.from('reservas').select('clase_id,tipo_clase,alumnos(nombre_alumno)').eq('estado','reservado')
+  ]);
+  const conteo={}, conteoTorno={}; (reservas||[]).forEach(r=>{ conteo[r.clase_id]=(conteo[r.clase_id]||0)+1; if((r.tipo_clase||'Torno')==='Torno') conteoTorno[r.clase_id]=(conteoTorno[r.clase_id]||0)+1; });
+  if(!clases?.length){ cont.innerHTML=`<div class="empty"><strong>Sin clases creadas</strong></div>`; return; }
+  cont.innerHTML=`<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Fecha</th><th>Día</th><th>Hora</th><th>Ocupación</th><th>Torno</th><th>Estado</th><th>Alumnos</th><th></th></tr></thead>
+    <tbody>${clases.map(c=>{
+      const ocu=conteo[c.id]||0;
+      const ocuTorno=conteoTorno[c.id]||0;
+      const nombres=(reservas||[]).filter(r=>r.clase_id===c.id).map(r=>r.alumnos?.nombre_alumno).filter(Boolean).map(n=>esc(n)).join(', ')||'—';
+      const estadoBtn=c.es_festivo?'—':c.bloqueada
+        ?`<button class="btn btn-ghost btn-sm" style="color:var(--purple);border-color:var(--purple)" onclick="toggleBloqueada('${esc(c.id)}',false)">🔒 Abrir</button>`
+        :`<button class="btn btn-ghost btn-sm" style="font-size:0.68rem" onclick="toggleBloqueada('${esc(c.id)}',true)">Bloquear</button>`;
+      return `<tr>
+        <td>${esc(c.fecha)}</td><td>${esc(c.dia_semana||getDia(c.fecha))}</td><td>${esc(c.hora)}</td>
+        <td>${c.es_festivo?'—':`${ocu}/${c.capacidad_alumnos||9}`}</td>
+        <td>${c.es_festivo?'—':`${ocuTorno}/${c.capacidad_max}`}</td>
+        <td>${estadoBtn}</td>
+        <td style="max-width:200px;font-size:0.78rem;color:var(--gray)">${c.es_festivo?'—':nombres}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="eliminarClase('${esc(c.id)}')">Eliminar</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+async function eliminarClase(id){
+  if(!confirm('¿Eliminar esta clase y sus reservas?')) return;
+  await sb.from('reservas').delete().eq('clase_id',id);
+  await sb.from('clases').delete().eq('id',id);
+  cargarAdminClases();
+}
+async function toggleBloqueada(id, bloquear){
+  const {error}=await sb.from('clases').update({bloqueada:bloquear}).eq('id',id);
+  if(error) return showMsg('admin-msg',error.message);
+  cargarAdminClases();
+}
+async function generarMes(){
+  const mesVal=document.getElementById('gen-mes').value; // '2026-07'
+  const tipo=document.getElementById('gen-tipo').value;
+  const capBase=parseInt(document.getElementById('gen-cap').value);
+  const [yr,mo]=mesVal.split('-').map(Number);
+
+  // Julio (07) y agosto (08) tienen horarios de solapamiento
+  const esVerano=mo===7 || mo===8;
+  const esAgosto=mo===8;
+
+  let dias, horarios, cap, fechasPermitidas=null;
+  if(esVerano){
+    dias=[3,5]; // mié y vie para mañana, lun-jue para tarde
+    horarios=['10:00-12:00','11:00-13:00','18:00-20:00','19:00-21:00'];
+    cap=6; // máximo 6 para no superar 13 en solapamiento
+
+    // Agosto 2026: solo primera quincena (semanas del 3-6 y 10-13, mañanas 5,7,12,14)
+    if(esAgosto){
+      fechasPermitidas=new Set([
+        '2026-08-03','2026-08-04','2026-08-05','2026-08-06',  // lun-jue semana 1 (tardes)
+        '2026-08-05','2026-08-07',  // mié,vie semana 1 (mañanas)
+        '2026-08-10','2026-08-11','2026-08-12','2026-08-13',  // lun-jue semana 2 (tardes)
+        '2026-08-12','2026-08-14'   // mié,vie semana 2 (mañanas)
+      ]);
+    }
+  } else {
+    dias=[
+      document.getElementById('gen-lun').checked?1:-1,
+      document.getElementById('gen-mar').checked?2:-1,
+      document.getElementById('gen-mie').checked?3:-1,
+      document.getElementById('gen-jue').checked?4:-1,
+      document.getElementById('gen-vie').checked?5:-1,
+      document.getElementById('gen-sab').checked?6:-1,
+    ].filter(d=>d>=0);
+    const horariosCheck=[];
+    if(document.getElementById('gen-mañana').checked) horariosCheck.push('10:00-13:00');
+    if(document.getElementById('gen-tarde').checked) horariosCheck.push('18:00-21:00');
+    horarios=horariosCheck;
+    cap=capBase;
+    if(!dias.length) return showMsg('admin-msg','Selecciona al menos un día de la semana');
+    if(!horarios.length) return showMsg('admin-msg','Selecciona al menos un horario');
+  }
+
+  const diasEnMes=new Date(yr,mo,0).getDate();
+  const filas=[];
+  for(let d=1;d<=diasEnMes;d++){
+    const dt=new Date(yr,mo-1,d);
+    const dow=dt.getDay(); // 0=dom,1=lun,...6=sab
+    const fechaStr=`${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+
+    // Para agosto, solo procesar fechas permitidas
+    if(esAgosto && !fechasPermitidas.has(fechaStr)) continue;
+
+    let horariosHoy=horarios;
+    if(esVerano){
+      // En verano: mañana mié+vie (3,5), tarde lun-jue (1-4). Miércoles tiene AMBOS.
+      horariosHoy=[];
+      if([3,5].includes(dow)) horariosHoy=horariosHoy.concat(['10:00-12:00','11:00-13:00']); // mañana
+      if([1,2,3,4].includes(dow)) horariosHoy=horariosHoy.concat(['18:00-20:00','19:00-21:00']); // tarde
+    } else {
+      if(!dias.includes(dow)) continue;
+    }
+
+    if(!horariosHoy.length) continue;
+    for(const hora of horariosHoy){
+      filas.push({fecha:fechaStr,hora,tipo_clase:tipo,capacidad_max:cap,capacidad_alumnos:cap,dia_semana:getDia(fechaStr),es_festivo:false,bloqueada:true});
+    }
+  }
+  if(!filas.length) return showMsg('admin-msg','No hay días que coincidan con la selección');
+  showMsg('admin-msg',`Creando ${filas.length} clases...`,'success');
+  const {error}=await sb.from('clases').insert(filas);
+  if(error) return showMsg('admin-msg','Error: '+error.message);
+  showMsg('admin-msg',`✓ ${filas.length} clases creadas (bloqueadas). Ábrelas desde la tabla cuando estés lista.`,'success');
+  cargarAdminClases();
+}
+
+/* ── ADMIN ALUMNOS ───────────────────── */
+async function cargarAdminAlumnos(){
+  const cont=document.getElementById('admin-alumnos-tabla');
+  const hoyStr=fmt(new Date());
+  // Supabase devuelve como máximo 1000 filas por consulta: paginamos para no perder reservas
+  const cargarReservasFuturas=async()=>{
+    const todas=[];
+    for(let desde=0;;desde+=1000){
+      const {data}=await sb.from('reservas').select('id,alumno_id,clases!inner(fecha)').eq('estado','reservado').gte('clases.fecha',hoyStr).order('id').range(desde,desde+999);
+      todas.push(...(data||[]));
+      if(!data||data.length<1000) return todas;
+    }
+  };
+  const [{data:al},res]=await Promise.all([
+    sb.from('alumnos').select('*').order('nombre_alumno'),
+    cargarReservasFuturas()
+  ]);
+  const conteo={}; res.forEach(r=>{ conteo[r.alumno_id]=(conteo[r.alumno_id]||0)+1; });
+  if(!al?.length){ cont.innerHTML=`<div class="empty"><strong>Sin alumnos</strong></div>`; return; }
+  const mesActual=new Date().toISOString().slice(0,7);
+  const mostrarInactivas=document.getElementById('chk-mostrar-inactivas')?.checked;
+  const filas=mostrarInactivas?al:al.filter(a=>a.activo!==false);
+  cont.innerHTML=`<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Nombre</th><th>Email</th><th>Frecuencia</th><th>Tipo</th><th>Pago</th><th>Estado</th><th>Reservas</th><th>A recuperar</th><th>Acciones</th></tr></thead>
+    <tbody>${filas.map(a=>`<tr>
+      <td style="font-weight:600">${esc(a.nombre_alumno)}</td>
+      <td style="font-size:0.78rem;color:var(--gray)">${esc(a.email||'—')}</td>
+      <td><span class="tag ${a.frecuencia==='2veces'?'tag-torno':'tag-modelado'}">${a.frecuencia==='2veces'?'2×/sem':'1×/sem'}</span>${a.precio_mensual?` <span class="tag" style="font-size:0.62rem;opacity:0.75">${esc(String(a.precio_mensual))}€/mes</span>`:''}</td>
+      <td><span class="tag ${(a.tipo_clase_default||'Torno')==='Torno'?'tag-torno':'tag-modelado'}">${esc(a.tipo_clase_default||'Torno')}</span>${a.tipo_usuario==='coworking'?' <span class="tag tag-modelado" style="font-size:0.62rem;opacity:0.75">Coworking</span>':''}</td>
+      <td>${a.ultimo_pago_mes===mesActual?`<span class="tag" style="color:var(--green)">✓ Pagado (${esc(String(a.ultimo_pago_importe||''))}€)</span>`:`<span class="tag" style="color:var(--gray)">Pendiente</span> <button class="btn btn-ghost btn-sm" style="padding:0.15rem 0.4rem;font-size:0.68rem" onclick="marcarPagoManual('${esc(a.id)}','${esc(a.frecuencia)}',${a.precio_mensual?JSON.stringify(a.precio_mensual):'null'})">Marcar pagado</button>`}</td>
+      <td>${a.activo!==false?`<span class="tag" style="color:var(--green)">Activa</span>`:`<span class="tag" style="color:var(--gray)">Inactiva</span>`}</td>
+      <td>${conteo[a.id]||0}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:0.4rem">
+          <span style="font-weight:700;color:${(a.clases_recuperar||0)>0?'var(--orange)':'var(--gray)'};min-width:16px">${a.clases_recuperar||0}</span>
+          <button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.5rem" onclick="ajustarRec('${esc(a.id)}',${parseInt(a.clases_recuperar||0)},1)">+</button>
+          <button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.5rem" onclick="ajustarRec('${esc(a.id)}',${parseInt(a.clases_recuperar||0)},-1)">−</button>
+        </div>
+      </td>
+      <td>${a.activo!==false?`<button class="btn btn-danger btn-sm" onclick="darDeBaja('${esc(a.id)}')">Dar de baja</button>`:`<button class="btn btn-green btn-sm" onclick="reactivarAlumna('${esc(a.id)}')">Reactivar</button>`}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+async function darDeBaja(aid){
+  if(!confirm('¿Dar de baja a esta alumna? Se cancelarán sus reservas futuras. Podrás reactivarla después.')) return;
+  const hoyStr=fmt(new Date());
+  const {data:futuras}=await sb.from('reservas').select('id,clases(fecha)').eq('alumno_id',aid).eq('estado','reservado');
+  const idsCancelar=(futuras||[]).filter(r=>r.clases&&r.clases.fecha>=hoyStr).map(r=>r.id);
+  if(idsCancelar.length) await sb.from('reservas').update({estado:'cancelado'}).in('id',idsCancelar);
+  const {error}=await sb.from('alumnos').update({activo:false}).eq('id',aid);
+  if(error){ alert('Error al dar de baja: '+error.message); return; }
+  cargarAdminAlumnos();
+}
+async function reactivarAlumna(aid){
+  const {error}=await sb.from('alumnos').update({activo:true}).eq('id',aid);
+  if(error){ alert('Error al reactivar: '+error.message); return; }
+  cargarAdminAlumnos();
+}
+async function marcarPagoManual(aid,frecuencia,precioMensual){
+  const metodo=prompt('¿Cómo ha pagado? (efectivo / transferencia / bizum)','efectivo');
+  if(!metodo) return;
+  const importeDefault=precioMensual||(frecuencia==='2veces'?100:55);
+  const importeStr=prompt('Importe (€):',String(importeDefault));
+  if(!importeStr) return;
+  const importe=parseFloat(importeStr.replace(',','.'));
+  if(isNaN(importe)){ alert('Importe no válido'); return; }
+  const fechaPago=new Date();
+  const mesCorrespondiente=fechaPago.toISOString().slice(0,7);
+  const {error:errPago}=await sb.from('pagos').insert({alumno_id:aid,fecha_pago:fechaPago.toISOString(),importe,mes_correspondiente:mesCorrespondiente,metodo:metodo.trim().toLowerCase()});
+  if(errPago){ alert('Error al registrar el pago: '+errPago.message); return; }
+  const {error:errAl}=await sb.from('alumnos').update({ultimo_pago_mes:mesCorrespondiente,ultimo_pago_fecha:fechaPago.toISOString(),ultimo_pago_importe:importe}).eq('id',aid);
+  if(errAl){ alert('Error al actualizar la alumna: '+errAl.message); return; }
+  cargarAdminAlumnos();
+}
+function abrirModalNuevaAlumna(){
+  ['na-nombre','na-email','na-telefono','na-dia','na-hora'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('na-frecuencia').value='1vez';
+  document.getElementById('na-tipo-clase').value='Torno';
+  document.getElementById('na-crear-cuenta').checked=true;
+  document.getElementById('na-msg').textContent='';
+  document.getElementById('modal-nueva-alumna').style.display='flex';
+}
+function closeModalNuevaAlumna(){ document.getElementById('modal-nueva-alumna').style.display='none'; }
+async function crearAlumna(){
+  const msg=document.getElementById('na-msg');
+  const nombre_alumno=document.getElementById('na-nombre').value.trim();
+  if(!nombre_alumno){ msg.style.color='#C0392B'; msg.textContent='El nombre es obligatorio'; return; }
+  const payload={
+    nombre_alumno,
+    email:document.getElementById('na-email').value.trim(),
+    telefono:document.getElementById('na-telefono').value.trim(),
+    frecuencia:document.getElementById('na-frecuencia').value,
+    tipo_clase_default:document.getElementById('na-tipo-clase').value,
+    dia_habitual:document.getElementById('na-dia').value.trim(),
+    hora_habitual:document.getElementById('na-hora').value.trim(),
+    crear_cuenta:document.getElementById('na-crear-cuenta').checked
+  };
+  msg.style.color='var(--gray)'; msg.textContent='Guardando...';
+  const {data,error}=await sb.functions.invoke('admin-create-alumno',{body:payload});
+  if(error||data?.error){
+    msg.style.color='#C0392B';
+    msg.textContent=data?.error||'Error al crear la alumna';
+    return;
+  }
+  msg.style.color='var(--green)';
+  msg.textContent=data.password?`Alumna creada. Contraseña de acceso: ${data.password}`:'Alumna creada.';
+  cargarAdminAlumnos();
+  setTimeout(closeModalNuevaAlumna,2500);
+}
+// El +/− crea o retira un crédito real en `recuperaciones` (es lo que exige la
+// reserva); el contador de alumnos se recalcula a partir de los créditos vivos.
+async function ajustarRec(aid,actual,delta){
+  const hoy=new Date().toLocaleDateString('sv-SE');
+  if(delta>0){
+    const {data:res}=await sb.from('reservas').select('clase_id,clases!inner(fecha)').eq('alumno_id',aid).lte('clases.fecha',hoy).order('fecha',{referencedTable:'clases',ascending:false}).limit(1);
+    let cid=res&&res[0]&&res[0].clase_id;
+    if(!cid){ const {data:c}=await sb.from('clases').select('id').lte('fecha',hoy).order('fecha',{ascending:false}).limit(1); cid=c&&c[0]&&c[0].id; }
+    if(!cid) return alert('No se ha encontrado una clase de referencia para el crédito');
+    const lim=new Date(); lim.setDate(lim.getDate()+35);
+    const {error}=await sb.from('recuperaciones').insert({alumno_id:aid,clase_original_id:cid,fecha_limite:lim.toLocaleDateString('sv-SE')});
+    if(error) return alert('Error: '+error.message);
+  } else {
+    const {data:pend}=await sb.from('recuperaciones').select('id').eq('alumno_id',aid).eq('estado','pendiente').gte('fecha_limite',hoy).order('fecha_limite',{ascending:false}).limit(1);
+    if(pend&&pend.length){
+      const {error}=await sb.from('recuperaciones').update({estado:'caducada'}).eq('id',pend[0].id);
+      if(error) return alert('Error: '+error.message);
+    }
+  }
+  const {count}=await sb.from('recuperaciones').select('id',{count:'exact',head:true}).eq('alumno_id',aid).eq('estado','pendiente').gte('fecha_limite',hoy);
+  await sb.from('alumnos').update({clases_recuperar:count||0}).eq('id',aid);
+  cargarAdminAlumnos();
+}
+
+/* ── MODAL ALUMNO ────────────────────── */
+async function abrirModal(aid,nombre){
+  document.getElementById('modal-nombre').textContent=nombre;
+  document.getElementById('modal-content').innerHTML='<div class="loading">Cargando...</div>';
+  document.getElementById('modal-alumno').style.display='flex';
+  // Store current alumno id for config save
+  document.getElementById('modal-alumno').dataset.aid=aid;
+  // Load alumno config
+  const {data:alData}=await sb.from('alumnos').select('tipo_usuario,tipo_clase_default').eq('id',aid).single();
+  if(alData){
+    document.getElementById('modal-tipo-usuario').value=alData.tipo_usuario||'alumno';
+    document.getElementById('modal-tipo-default').value=alData.tipo_clase_default||'Torno';
+  }
+  const [{data:activas},{data:futuras}]=await Promise.all([
+    sb.from('reservas').select('*,clases(*)').eq('alumno_id',aid).eq('estado','reservado').order('created_at',{ascending:false}),
+    sb.from('clases').select('*').gte('fecha',fmt(new Date())).eq('es_festivo',false).order('fecha').order('hora')
+  ]);
+  const idsActivos=new Set((activas||[]).map(r=>r.clase_id));
+  const listaActivas=activas?.length
+    ?`<div style="margin-bottom:1.5rem">
+        <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray);margin-bottom:0.75rem">Reservas activas</div>
+        ${activas.map(r=>{
+          const c=r.clases; if(!c) return '';
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem;border:1px solid var(--border);border-radius:8px;margin-bottom:0.5rem;font-size:0.83rem">
+            <span>${esc(getDia(c.fecha))} ${esc(fmtES(c.fecha))} · ${esc(c.hora)} · <strong>${esc(c.tipo_clase)}</strong></span>
+            <button class="btn btn-danger btn-sm" data-aid="${esc(aid)}" data-cid="${esc(c.id)}" data-nombre="${esc(nombre)}" onclick="adminCancelarBtn(this)">Cancelar</button>
+          </div>`;
+        }).join('')}
+      </div>`
+    :`<p style="font-size:0.83rem;color:var(--gray);margin-bottom:1.5rem">Sin reservas activas.</p>`;
+  const disponibles=futuras?.filter(c=>!idsActivos.has(c.id)).slice(0,15)||[];
+  const listaFuturas=disponibles.length
+    ?disponibles.map(c=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem;border:1px solid var(--border);border-radius:8px;margin-bottom:0.5rem;font-size:0.83rem">
+        <span>${esc(getDia(c.fecha))} ${esc(fmtES(c.fecha))} · ${esc(c.hora)} · <strong>${esc(c.tipo_clase)}</strong></span>
+        <button class="btn btn-green btn-sm" data-aid="${esc(aid)}" data-cid="${esc(c.id)}" data-nombre="${esc(nombre)}" onclick="adminReservarBtn(this)">Reservar</button>
+      </div>`).join('')
+    :`<p style="font-size:0.83rem;color:var(--gray)">Sin clases disponibles próximamente.</p>`;
+  document.getElementById('modal-content').innerHTML=listaActivas+
+    `<div style="font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray);margin-bottom:0.75rem">Añadir reserva</div>`+listaFuturas;
+}
+function adminReservarBtn(btn){ adminReservar(btn.dataset.aid, btn.dataset.cid, btn.dataset.nombre); }
+function adminCancelarBtn(btn){ adminCancelar(btn.dataset.aid, btn.dataset.cid, btn.dataset.nombre); }
+async function adminReservar(aid,cid,nombre){
+  const {error}=await sb.from('reservas').insert({alumno_id:aid,clase_id:cid,estado:'reservado'});
+  if(error) return alert('Error: '+error.message);
+  abrirModal(aid,nombre); cargarAdminAlumnos();
+}
+async function adminCancelar(aid,cid,nombre){
+  if(!confirm('¿Cancelar esta reserva?')) return;
+  await sb.from('reservas').update({estado:'cancelado'}).eq('alumno_id',aid).eq('clase_id',cid);
+  abrirModal(aid,nombre); cargarAdminAlumnos();
+}
+async function guardarConfigAlumno(){
+  const aid=document.getElementById('modal-alumno').dataset.aid;
+  const tipo=document.getElementById('modal-tipo-usuario').value;
+  const def=document.getElementById('modal-tipo-default').value;
+  const {error}=await sb.from('alumnos').update({tipo_usuario:tipo,tipo_clase_default:def}).eq('id',aid);
+  const msg=document.getElementById('modal-config-msg');
+  if(error){ msg.style.color='#C0392B'; msg.textContent='Error al guardar'; }
+  else { msg.style.color='var(--green)'; msg.textContent='Guardado ✓'; setTimeout(()=>msg.textContent='',2000); }
+  cargarAdminAlumnos();
+}
+function closeModal(){ document.getElementById('modal-alumno').style.display='none'; }
+
+async function adminCambiarTipoClase(sel){
+  var rid=sel.getAttribute('data-rid');
+  var fecha=sel.getAttribute('data-fecha');
+  var nuevoTipo=sel.value;
+  var {error}=await sb.from('reservas').update({tipo_clase:nuevoTipo}).eq('id',rid);
+  if(error){ alert('Error al guardar: '+error.message); return; }
+  if(fecha) mostrarDia(fecha);
+}
+async function adminCancelarDia(btn){
+  if(!confirm('Cancelar esta reserva?')) return;
+  var rid=btn.getAttribute('data-rid');
+  var fecha=btn.getAttribute('data-fecha');
+  await sb.from('reservas').update({estado:'cancelado'}).eq('id',rid);
+  mostrarDia(fecha); cargarCalendario();
+}
+async function adminReservarDia(btn){
+  var aid=btn.getAttribute('data-aid');
+  var cid=btn.getAttribute('data-cid');
+  var fecha=btn.getAttribute('data-fecha');
+  var {error}=await sb.from('reservas').insert({alumno_id:aid,clase_id:cid,estado:'reservado'});
+  if(error) return alert('Error: '+error.message);
+  mostrarDia(fecha); cargarCalendario();
+}
+async function adminAnadirDesdeSelector(btn){
+  var cid=btn.getAttribute('data-cid');
+  var fecha=btn.getAttribute('data-fecha');
+  var sel=document.getElementById('sel-'+cid);
+  if(!sel||!sel.value) return alert('Selecciona un alumno');
+  var {error}=await sb.from('reservas').insert({alumno_id:sel.value,clase_id:cid,estado:'reservado'});
+  if(error) return alert('Error: '+error.message);
+  mostrarDia(fecha); cargarCalendario();
+}
+function togglePass(id,btn){
+  const input=document.getElementById(id);
+  if(input.type==='password'){ input.type='text'; btn.innerHTML='&#128584;'; }
+  else{ input.type='password'; btn.innerHTML='&#128065;'; }
+}
+/* ── INIT ────────────────────────────── */
+(async function(){
+  try{
+    const {data:{session}} = await Promise.race([
+      sb.auth.getSession(),
+      new Promise((_,reject) => setTimeout(() => reject(new Error('Session check timeout')), 5000))
+    ]);
+    if(session && session.user && !loginInProgress){
+      await initApp(session.user);
+      return;
+    }
+  }catch(e){
+    console.warn('[App Init]', e);
+  }
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('app').style.display='none';
+})();
+
+sb.auth.onAuthStateChange(async(event,session)=>{
+  if(event==='SIGNED_IN' && session && session.user){
+    if(!user) await initApp(session.user);
+  }
+  else if(event==='SIGNED_OUT'){
+    user=null;
+    alumno=null;
+    isAdmin=false; isProf=false;
+    document.getElementById('app').style.display='none';
+    document.getElementById('auth-screen').style.display='flex';
+    document.getElementById('auth-msg').innerHTML='';
+  }
+});
+</script>
+</body>
+</html>
